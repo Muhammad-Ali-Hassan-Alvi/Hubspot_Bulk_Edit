@@ -30,7 +30,8 @@ const ValueBadge = ({
   const textValue = String(value ?? 'N/A')
   const variantClasses = {
     page: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
-    previous: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
+    previous:
+      'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
     new: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
   }
 
@@ -111,7 +112,8 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-green-800 dark:text-green-400 flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Modified By</CardTitle>
+                  Modified By
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-green-700 dark:text-green-300">
@@ -158,7 +160,7 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Record Changes</CardTitle>
@@ -199,7 +201,10 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
                         </div>
 
                         {/* Field */}
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" title={change.field}>
+                        <div
+                          className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                          title={change.field}
+                        >
                           {change.field}
                         </div>
 

@@ -303,8 +303,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
       // Get the data source (allHeaders contains all fields)
       const dataSource = item.allHeaders || item.exportHeaders || item
 
-
-
       const nameMatch =
         !searchTerm || dataSource.name?.toLowerCase().includes(searchTerm.toLowerCase())
       const slugMatch =
@@ -371,27 +369,27 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         if (!dateRange[0] && !dateRange[1]) {
           return true
         }
-        
+
         // If no createdAt field, exclude the item
         if (!dataSource.createdAt) {
           return false
         }
-        
+
         const itemDate = new Date(dataSource.createdAt)
-        
+
         // If both start and end dates are selected
         if (dateRange[0] && dateRange[1]) {
           const startDate = new Date(dateRange[0])
           const endDate = new Date(dateRange[1])
-          
+
           // Set start date to beginning of day
           startDate.setHours(0, 0, 0, 0)
           // Set end date to end of day
           endDate.setHours(23, 59, 59, 999)
-          
+
           return itemDate >= startDate && itemDate <= endDate
         }
-        
+
         // If only start date is selected, treat it as that exact day
         if (dateRange[0]) {
           const startDate = new Date(dateRange[0])
@@ -400,18 +398,16 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           endDate.setHours(23, 59, 59, 999)
           return itemDate >= startDate && itemDate <= endDate
         }
-        
+
         // If only end date is selected
         if (dateRange[1]) {
           const endDate = new Date(dateRange[1])
           endDate.setHours(23, 59, 59, 999)
           return itemDate <= endDate
         }
-        
+
         return true
       })()
-
-
 
       return (
         nameMatch &&
@@ -639,7 +635,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
   // Deduplication mechanism to prevent logging identical operations
   const lastLogRef = useRef<{ timestamp: number; content: string } | null>(null)
-  
+
   const logBulkEditingActivity = async (
     changes: { [key: string]: any },
     successful: number,
@@ -650,85 +646,99 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   ) => {
     // Check for duplicate operations within 2 seconds
     const now = Date.now()
-    const logContent = JSON.stringify({ changes, successful, failed, wasSuccessful, selectedPageIds })
-    
-    if (lastLogRef.current && 
-        now - lastLogRef.current.timestamp < 2000 && 
-        lastLogRef.current.content === logContent) {
+    const logContent = JSON.stringify({
+      changes,
+      successful,
+      failed,
+      wasSuccessful,
+      selectedPageIds,
+    })
+
+    if (
+      lastLogRef.current &&
+      now - lastLogRef.current.timestamp < 2000 &&
+      lastLogRef.current.content === logContent
+    ) {
       return // Skip duplicate logging
     }
-    
+
     lastLogRef.current = { timestamp: now, content: logContent }
     try {
       // Construct pageChanges array with detailed information
-      const pageChanges = selectedPageIds?.map(pageId => {
-        const page = content.find(item => item.id === pageId)
-        if (!page) return null
+      const pageChanges =
+        selectedPageIds
+          ?.map(pageId => {
+            const page = content.find(item => item.id === pageId)
+            if (!page) return null
 
-        // Extract page name from multiple possible sources
-        let pageName = 'Unknown Page'
-        if (page.name && page.name !== 'Untitled') {
-          pageName = page.name
-        } else if (page.htmlTitle && page.htmlTitle !== 'Untitled') {
-          pageName = page.htmlTitle
-        } else if (page.title && page.title !== 'Untitled') {
-          pageName = page.title
-        } else if (page.metaTitle && page.metaTitle !== 'Untitled') {
-          pageName = page.metaTitle
-        } else if (page.exportHeaders?.name && page.exportHeaders.name !== 'Untitled') {
-          pageName = page.exportHeaders.name
-        } else if (page.allHeaders?.name && page.allHeaders.name !== 'Untitled') {
-          pageName = page.allHeaders.name
-        } else {
-          pageName = `Page ${pageId}`
-        }
+            // Extract page name from multiple possible sources
+            let pageName = 'Unknown Page'
+            if (page.name && page.name !== 'Untitled') {
+              pageName = page.name
+            } else if (page.htmlTitle && page.htmlTitle !== 'Untitled') {
+              pageName = page.htmlTitle
+            } else if (page.title && page.title !== 'Untitled') {
+              pageName = page.title
+            } else if (page.metaTitle && page.metaTitle !== 'Untitled') {
+              pageName = page.metaTitle
+            } else if (page.exportHeaders?.name && page.exportHeaders.name !== 'Untitled') {
+              pageName = page.exportHeaders.name
+            } else if (page.allHeaders?.name && page.allHeaders.name !== 'Untitled') {
+              pageName = page.allHeaders.name
+            } else {
+              pageName = `Page ${pageId}`
+            }
 
-        // Clean up page name
-        pageName = pageName.replace(/^Untitled\s*/, '').trim() || `Page ${pageId}`
+            // Clean up page name
+            pageName = pageName.replace(/^Untitled\s*/, '').trim() || `Page ${pageId}`
 
-        // Extract previous values for each changed field
-        const fieldChanges = Object.keys(changes).map(fieldKey => {
-          // Map field keys to human-readable labels
-          const fieldKeyToLabel: { [key: string]: string } = {
-            name: 'Page Name',
-            htmlTitle: 'HTML Title',
-            title: 'Title',
-            metaTitle: 'Meta Title',
-            metaDescription: 'Meta Description',
-            // Add more field mappings as needed
-          }
+            // Extract previous values for each changed field
+            const fieldChanges = Object.keys(changes).map(fieldKey => {
+              // Map field keys to human-readable labels
+              const fieldKeyToLabel: { [key: string]: string } = {
+                name: 'Page Name',
+                htmlTitle: 'HTML Title',
+                title: 'Title',
+                metaTitle: 'Meta Title',
+                metaDescription: 'Meta Description',
+                // Add more field mappings as needed
+              }
 
-          const fieldLabel = fieldKeyToLabel[fieldKey] || fieldKey
-          
-          // Extract previous value from multiple possible sources
-          let previousValue = 'Field not set'
-          if (page[fieldKey as keyof typeof page]) {
-            previousValue = String(page[fieldKey as keyof typeof page])
-          } else if (page.exportHeaders?.[fieldKey]) {
-            previousValue = String(page.exportHeaders[fieldKey])
-          } else if (page.allHeaders?.[fieldKey]) {
-            previousValue = String(page.allHeaders[fieldKey])
-          }
+              const fieldLabel = fieldKeyToLabel[fieldKey] || fieldKey
 
-          // Clean up previous value
-          if (previousValue === 'undefined' || previousValue === 'null' || previousValue === '') {
-            previousValue = 'Field not set'
-          }
+              // Extract previous value from multiple possible sources
+              let previousValue = 'Field not set'
+              if (page[fieldKey as keyof typeof page]) {
+                previousValue = String(page[fieldKey as keyof typeof page])
+              } else if (page.exportHeaders?.[fieldKey]) {
+                previousValue = String(page.exportHeaders[fieldKey])
+              } else if (page.allHeaders?.[fieldKey]) {
+                previousValue = String(page.allHeaders[fieldKey])
+              }
 
-          return {
-            pageId,
-            pageName,
-            field: fieldLabel,
-            previousValue: previousValue || 'Field not set',
-            newValue: String(changes[fieldKey])
-          }
-        })
+              // Clean up previous value
+              if (
+                previousValue === 'undefined' ||
+                previousValue === 'null' ||
+                previousValue === ''
+              ) {
+                previousValue = 'Field not set'
+              }
 
-        return fieldChanges
-      }).flat().filter(Boolean) || []
+              return {
+                pageId,
+                pageName,
+                field: fieldLabel,
+                previousValue: previousValue || 'Field not set',
+                newValue: String(changes[fieldKey]),
+              }
+            })
 
+            return fieldChanges
+          })
+          .flat()
+          .filter(Boolean) || []
 
-      
       const response = await fetch('/api/audit/bulk-editing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -951,6 +961,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             refreshCurrentPage={refreshCurrentPage}
             onClearSelection={handleClearSelection}
             isPublishing={isPublishing}
+            allContent={content}
           />
         </>
       )}
@@ -1014,8 +1025,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         }
         showPagination={totalItems > 0}
       />
-
-
     </div>
   )
 }

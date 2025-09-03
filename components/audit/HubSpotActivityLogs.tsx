@@ -429,7 +429,9 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
                   </div>
                   <div className="flex items-center gap-2">
                     <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <span className="font-semibold">{formatActionType(selectedLog.action_type)}</span>
+                    <span className="font-semibold">
+                      {formatActionType(selectedLog.action_type)}
+                    </span>
                   </div>
                 </div>
 

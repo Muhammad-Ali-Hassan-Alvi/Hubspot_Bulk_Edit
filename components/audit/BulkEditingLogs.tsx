@@ -4,9 +4,30 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, FileText, CalendarIcon, Activity, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  RefreshCw,
+  FileText,
+  CalendarIcon,
+  Activity,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+} from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { SupabaseUser } from '@/lib/supabase/types'
 
@@ -56,26 +77,32 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
   const fetchLogs = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/audit/logs?type=bulk-editing&page=1&limit=100&search=&action=all&resource=all&status=all')
-      
+      const response = await fetch(
+        '/api/audit/logs?type=bulk-editing&page=1&limit=100&search=&action=all&resource=all&status=all'
+      )
+
       if (!response.ok) {
         throw new Error('Failed to fetch logs')
       }
 
       const data = await response.json()
-      
+
       if (data.logs && Array.isArray(data.logs)) {
         // Client-side deduplication based on timestamp, content_type, changes_count, and page_changes
-        const uniqueLogs = data.logs.filter((log: BulkEditingLog, index: number, self: BulkEditingLog[]) => {
-          const firstIndex = self.findIndex(l => 
-            l.timestamp === log.timestamp &&
-            l.content_type === log.content_type &&
-            l.changes_count === log.changes_count &&
-            JSON.stringify(l.details?.page_changes) === JSON.stringify(log.details?.page_changes)
-          )
-          return firstIndex === index
-        })
-        
+        const uniqueLogs = data.logs.filter(
+          (log: BulkEditingLog, index: number, self: BulkEditingLog[]) => {
+            const firstIndex = self.findIndex(
+              l =>
+                l.timestamp === log.timestamp &&
+                l.content_type === log.content_type &&
+                l.changes_count === log.changes_count &&
+                JSON.stringify(l.details?.page_changes) ===
+                  JSON.stringify(log.details?.page_changes)
+            )
+            return firstIndex === index
+          }
+        )
+
         setLogs(uniqueLogs)
         setFilteredLogs(uniqueLogs)
       } else {
@@ -85,9 +112,9 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
     } catch (error) {
       console.error('Error fetching logs:', error)
       toast({
-        title: "Error",
-        description: "Failed to fetch bulk editing logs",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to fetch bulk editing logs',
+        variant: 'destructive',
       })
     } finally {
       setLoading(false)
@@ -102,7 +129,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
     if (log.details?.page_changes) {
       return log.details.page_changes
     }
-    
+
     // Fallback to generating from page_snapshots if page_changes not available
     if (log.details?.page_snapshots && Array.isArray(log.details.page_snapshots)) {
       return log.details.page_snapshots.map((snapshot: any) => ({
@@ -110,10 +137,10 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
         pageName: snapshot.page_name || `Page ${snapshot.page_id || 'Unknown'}`,
         field: 'Multiple fields',
         previousValue: 'Previous values available',
-        newValue: 'Updated values available'
+        newValue: 'Updated values available',
       }))
     }
-    
+
     return []
   }
 
@@ -183,9 +210,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
             Refresh
           </Button>
         </div>
-        <CardDescription>
-          Track all bulk editing operations and their results
-        </CardDescription>
+        <CardDescription>Track all bulk editing operations and their results</CardDescription>
       </CardHeader>
       <CardContent>
         {filteredLogs.length === 0 ? (
@@ -195,7 +220,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredLogs.map((log) => {
+            {filteredLogs.map(log => {
               const pageChanges = getPageChanges(log)
               return (
                 <Card key={log.id} className="border-l-4 border-l-blue-500">
@@ -215,21 +240,28 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
-                          <strong>Action:</strong> {log.action} • <strong>Resource:</strong> {log.resource}
+                          <strong>Action:</strong> {log.action} • <strong>Resource:</strong>{' '}
+                          {log.resource}
                           {log.changes_count && (
-                            <span> • <strong>Changes:</strong> {log.changes_count}</span>
+                            <span>
+                              {' '}
+                              • <strong>Changes:</strong> {log.changes_count}
+                            </span>
                           )}
                         </div>
                       </div>
-                      <Dialog open={isModalOpen && selectedLog?.id === log.id} onOpenChange={(open) => {
-                        if (open) {
-                          setSelectedLog(log)
-                          setIsModalOpen(true)
-                        } else {
-                          setIsModalOpen(false)
-                          setSelectedLog(null)
-                        }
-                      }}>
+                      <Dialog
+                        open={isModalOpen && selectedLog?.id === log.id}
+                        onOpenChange={open => {
+                          if (open) {
+                            setSelectedLog(log)
+                            setIsModalOpen(true)
+                          } else {
+                            setIsModalOpen(false)
+                            setSelectedLog(null)
+                          }
+                        }}
+                      >
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm">
                             View Details
@@ -245,7 +277,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                                 <strong>Timestamp:</strong> {formatTimestamp(log.timestamp)}
                               </div>
                               <div>
-                                <strong>Status:</strong> 
+                                <strong>Status:</strong>
                                 <Badge className={`ml-2 ${getStatusColor(log.status)}`}>
                                   {log.status}
                                 </Badge>
@@ -265,7 +297,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                                 </div>
                               )}
                             </div>
-                            
+
                             {pageChanges.length > 0 && (
                               <div>
                                 <h4 className="font-semibold mb-3">Page Changes</h4>

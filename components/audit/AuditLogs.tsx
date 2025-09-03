@@ -46,7 +46,6 @@ interface AuditLog {
   failure_count?: number
 }
 
-
 export default function AuditLogs() {
   // ... (state and hooks remain the same)
   const [logs, setLogs] = useState<AuditLog[]>([])
@@ -283,7 +282,6 @@ export default function AuditLogs() {
       </div>
     )
   }
-
 
   return (
     <div className="space-y-6">

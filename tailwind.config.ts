@@ -96,6 +96,13 @@ const config: Config = {
         // ---------------------------------
       },
     },
+    fontSize: {
+      sm: ['14px', { lineHeight: '20px' }],
+      base: ['16px', { lineHeight: '24px' }],
+      lg: ['18px', { lineHeight: '28px' }],
+      xl: ['20px', { lineHeight: '28px' }],
+      '2xl': ['22px', { lineHeight: '34px' }],
+    },
   },
   plugins: [require('tailwindcss-animate')],
 }

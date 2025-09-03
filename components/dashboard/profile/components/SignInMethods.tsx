@@ -76,20 +76,24 @@ export default function SignInMethods({
   const loggedInProvider = user.app_metadata?.provider
   const googleIdentities = user.identities?.filter(i => i.provider === 'google') || []
   const emailIdentities = user.identities?.filter(i => i.provider === 'email') || []
-  
+
   // Get linked emails from user metadata
   const linkedEmails = user.user_metadata?.linked_emails || []
-  
+
   // Only show email accounts that are NOT connected via Google
-  const googleEmails = googleIdentities.map(identity => identity.identity_data?.email).filter(Boolean)
-  
+  const googleEmails = googleIdentities
+    .map(identity => identity.identity_data?.email)
+    .filter(Boolean)
+
   const allEmailAccounts = [
     // Only show primary email if it's not connected via Google
-    ...(user.email && !googleEmails.includes(user.email) ? [{ email: user.email, isPrimary: true, type: 'primary' }] : []),
+    ...(user.email && !googleEmails.includes(user.email)
+      ? [{ email: user.email, isPrimary: true, type: 'primary' }]
+      : []),
     // Show linked emails that are not connected via Google
     ...linkedEmails
       .filter((email: string) => !googleEmails.includes(email))
-      .map((email: string) => ({ email, isPrimary: false, type: 'linked' }))
+      .map((email: string) => ({ email, isPrimary: false, type: 'linked' })),
   ]
 
   const hasPassword = emailIdentities.length > 0
@@ -222,9 +226,11 @@ export default function SignInMethods({
           setConfirmPassword('')
           setShowNewPassword(false)
           setShowConfirmPassword(false)
-          
+
           // Refresh user data to show the newly linked email
-          const { data: { user: refreshedUser } } = await supabase.auth.getUser()
+          const {
+            data: { user: refreshedUser },
+          } = await supabase.auth.getUser()
           if (refreshedUser) {
             setUser(refreshedUser)
           }
@@ -328,7 +334,7 @@ export default function SignInMethods({
   const handleUnlinkEmail = async (email: string) => {
     // Check if this is the last sign-in method
     const remainingMethods = googleIdentities.length + allEmailAccounts.length - 1
-    
+
     if (remainingMethods === 0) {
       toast({
         title: 'Cannot unlink',
@@ -363,9 +369,11 @@ export default function SignInMethods({
           title: 'Email unlinked successfully',
           description: `Your email account (${email}) has been unlinked from your profile.`,
         })
-        
+
         // Refresh user data to update the UI
-        const { data: { user: refreshedUser } } = await supabase.auth.getUser()
+        const {
+          data: { user: refreshedUser },
+        } = await supabase.auth.getUser()
         if (refreshedUser) {
           setUser(refreshedUser)
         }
@@ -418,15 +426,16 @@ export default function SignInMethods({
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-muted-foreground">Email Accounts</h3>
                 {allEmailAccounts.map((account, index) => (
-                  <div key={account.email} className="flex justify-between items-center border-b pb-3">
+                  <div
+                    key={account.email}
+                    className="flex justify-between items-center border-b pb-3"
+                  >
                     <div className="flex items-center gap-4">
                       <Mail />
                       <div>
                         <p className="font-medium flex items-center gap-2">
                           {account.email}
-                          {account.isPrimary && (
-                            <Badge variant="secondary">Primary</Badge>
-                          )}
+                          {account.isPrimary && <Badge variant="secondary">Primary</Badge>}
                           <Badge variant="outline">Email</Badge>
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -457,7 +466,9 @@ export default function SignInMethods({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleUpdateLinkedEmail(account.email)}>
+                            <DropdownMenuItem
+                              onClick={() => handleUpdateLinkedEmail(account.email)}
+                            >
                               Update Email
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -471,8 +482,9 @@ export default function SignInMethods({
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Unlink Email Account?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to unlink <strong>{account.email}</strong> from your profile? 
-                                    This will remove access to this email account and cannot be undone.
+                                    Are you sure you want to unlink <strong>{account.email}</strong>{' '}
+                                    from your profile? This will remove access to this email account
+                                    and cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -497,15 +509,11 @@ export default function SignInMethods({
                     </div>
                   </div>
                 ))}
-                
+
                 {allEmailAccounts.length === 0 && (
                   <div className="text-center py-4">
                     <p className="text-muted-foreground mb-3">No email accounts linked</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsModalOpen(true)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Link Email Account
                     </Button>
@@ -517,7 +525,10 @@ export default function SignInMethods({
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-muted-foreground">Google Accounts</h3>
                 {googleIdentities.map((identity, index) => (
-                  <div key={identity.id} className="flex justify-between items-center border-b pb-3">
+                  <div
+                    key={identity.id}
+                    className="flex justify-between items-center border-b pb-3"
+                  >
                     <div className="flex items-center gap-4">
                       <GoogleIcon />
                       <div>
@@ -555,8 +566,8 @@ export default function SignInMethods({
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Disconnect Google Account?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to disconnect your Google account? This cannot be
-                                  undone.
+                                  Are you sure you want to disconnect your Google account? This
+                                  cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -580,7 +591,7 @@ export default function SignInMethods({
                     </div>
                   </div>
                 ))}
-                
+
                 {googleIdentities.length === 0 && (
                   <div className="text-center py-4 text-muted-foreground">
                     <p>No Google accounts linked</p>
@@ -610,10 +621,9 @@ export default function SignInMethods({
           <DialogHeader>
             <DialogTitle>Update Account</DialogTitle>
             <DialogDescription>
-              {linkedEmails.length === 0 
+              {linkedEmails.length === 0
                 ? 'Update your email/password or link a new email account. Leave fields blank to keep them unchanged.'
-                : 'Update your email or password. Leave fields blank to keep them unchanged.'
-              }
+                : 'Update your email or password. Leave fields blank to keep them unchanged.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAccountUpdate}>
@@ -687,20 +697,21 @@ export default function SignInMethods({
       </Dialog>
 
       {/* Link Google Modal */}
-      <Dialog
-        open={isLinkGoogleModalOpen}
-        onOpenChange={setIsLinkGoogleModalOpen}
-      >
+      <Dialog open={isLinkGoogleModalOpen} onOpenChange={setIsLinkGoogleModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Link Google Account</DialogTitle>
             <DialogDescription>
-              Add a new Google account to your profile. You'll be redirected to Google to authorize the connection.
+              Add a new Google account to your profile. You'll be redirected to Google to authorize
+              the connection.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              <p>This will allow you to sign in with either your email or any of your linked Google accounts.</p>
+              <p>
+                This will allow you to sign in with either your email or any of your linked Google
+                accounts.
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <DialogClose asChild>
@@ -708,10 +719,7 @@ export default function SignInMethods({
                   Cancel
                 </Button>
               </DialogClose>
-              <Button
-                onClick={handleLinkGoogle}
-                disabled={isLinkingGoogle}
-              >
+              <Button onClick={handleLinkGoogle} disabled={isLinkingGoogle}>
                 {isLinkingGoogle ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

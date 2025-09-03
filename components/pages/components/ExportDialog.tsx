@@ -51,7 +51,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           Export
         </Button>
       </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto custom-scrollbar">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
           <DialogTitle>Export {contentType}</DialogTitle>
           <DialogDescription>

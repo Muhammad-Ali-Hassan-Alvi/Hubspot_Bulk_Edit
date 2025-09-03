@@ -5,14 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  AlertCircle,
-  ArrowUpDown,
-  Move,
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-} from 'lucide-react'
+import { AlertCircle, ArrowUpDown, Move, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -101,7 +94,6 @@ const renderCellContent = (item: HubSpotContent, columnKey: string) => {
   return String(value)
 }
 
-
 const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
   (
     {
@@ -142,41 +134,41 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
 
     const observerRef = useRef<IntersectionObserver | null>(null)
     const loadingRef = useRef<HTMLDivElement>(null)
-    
+
     // BRO: Renamed bottomScrollRef to tableContainerRef for clarity
     const topScrollRef = useRef<HTMLDivElement>(null)
     const tableContainerRef = useRef<HTMLDivElement>(null)
-    
+
     // BRO: Using a single ref to prevent scroll event loops.
     // This is more robust than using two separate boolean refs.
-    const isSyncingScroll = useRef(false);
+    const isSyncingScroll = useRef(false)
 
     // ... (sorting function remains the same)
     const sortedContent = useCallback(() => {
-        if (!sortConfig.key) return filteredContent
-  
-        return [...filteredContent].sort((a, b) => {
-          const aValue = a.exportHeaders?.[sortConfig.key!] || a[sortConfig.key!]
-          const bValue = b.exportHeaders?.[sortConfig.key!] || b[sortConfig.key!]
-  
-          if (aValue === bValue) return 0
-          if (aValue === null || aValue === undefined) return 1
-          if (bValue === null || bValue === undefined) return -1
-  
-          const comparison = String(aValue).localeCompare(String(bValue))
-          return sortConfig.direction === 'asc' ? comparison : -comparison
-        })
-      }, [filteredContent, sortConfig])
+      if (!sortConfig.key) return filteredContent
+
+      return [...filteredContent].sort((a, b) => {
+        const aValue = a.exportHeaders?.[sortConfig.key!] || a[sortConfig.key!]
+        const bValue = b.exportHeaders?.[sortConfig.key!] || b[sortConfig.key!]
+
+        if (aValue === bValue) return 0
+        if (aValue === null || aValue === undefined) return 1
+        if (bValue === null || bValue === undefined) return -1
+
+        const comparison = String(aValue).localeCompare(String(bValue))
+        return sortConfig.direction === 'asc' ? comparison : -comparison
+      })
+    }, [filteredContent, sortConfig])
 
     // ... (handleSort, handleResizeStart, handleDrag events remain the same)
     const handleSort = (key: string) => {
-        setSortConfig(prev => ({
-          key,
-          direction: (prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc') as
-            | 'asc'
-            | 'desc',
-        }))
-      }
+      setSortConfig(prev => ({
+        key,
+        direction: (prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc') as
+          | 'asc'
+          | 'desc',
+      }))
+    }
     const handleResizeStart = (e: React.MouseEvent, columnKey: string) => {
       e.preventDefault()
       e.stopPropagation()
@@ -240,116 +232,115 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
 
     // BRO: Updated scroll synchronization logic
     const handleScroll = (source: 'top' | 'bottom') => {
-      if (isSyncingScroll.current) return;
-    
-      isSyncingScroll.current = true;
-    
-      const top = topScrollRef.current;
-      const bottom = tableContainerRef.current;
-    
+      if (isSyncingScroll.current) return
+
+      isSyncingScroll.current = true
+
+      const top = topScrollRef.current
+      const bottom = tableContainerRef.current
+
       if (top && bottom) {
         if (source === 'top') {
-          bottom.scrollLeft = top.scrollLeft;
+          bottom.scrollLeft = top.scrollLeft
         } else {
-          top.scrollLeft = bottom.scrollLeft;
+          top.scrollLeft = bottom.scrollLeft
         }
       }
-    
+
       // Use requestAnimationFrame to reset the lock after the browser has painted the change
       requestAnimationFrame(() => {
-        isSyncingScroll.current = false;
-      });
-    };
+        isSyncingScroll.current = false
+      })
+    }
 
     // ... (useEffect for infinite scroll remains the same)
     useEffect(() => {
-        if (onLoadMore && hasMore) {
-          const observer = new IntersectionObserver(
-            entries => {
-              const [entry] = entries
-              if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
-                onLoadMore()
-              }
-            },
-            {
-              rootMargin: '100px',
-              threshold: 0.1,
+      if (onLoadMore && hasMore) {
+        const observer = new IntersectionObserver(
+          entries => {
+            const [entry] = entries
+            if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+              onLoadMore()
             }
-          )
-  
-          if (loadingRef.current) {
-            observer.observe(loadingRef.current)
+          },
+          {
+            rootMargin: '100px',
+            threshold: 0.1,
           }
-  
-          observerRef.current = observer
-  
-          return () => {
-            if (observerRef.current) {
-              observerRef.current.disconnect()
-            }
+        )
+
+        if (loadingRef.current) {
+          observer.observe(loadingRef.current)
+        }
+
+        observerRef.current = observer
+
+        return () => {
+          if (observerRef.current) {
+            observerRef.current.disconnect()
           }
         }
-      }, [hasMore, loadingMore, loading, onLoadMore])
+      }
+    }, [hasMore, loadingMore, loading, onLoadMore])
 
     // ... (useEffect for resizing remains the same)
     useEffect(() => {
-        if (isResizing) {
-          document.addEventListener('mousemove', handleResizeMove)
-          document.addEventListener('mouseup', handleResizeEnd)
-          document.body.style.cursor = 'col-resize'
-          document.body.style.userSelect = 'none'
-  
-          return () => {
-            document.removeEventListener('mousemove', handleResizeMove)
-            document.removeEventListener('mouseup', handleResizeEnd)
-            document.body.style.cursor = ''
-            document.body.style.userSelect = ''
-          }
+      if (isResizing) {
+        document.addEventListener('mousemove', handleResizeMove)
+        document.addEventListener('mouseup', handleResizeEnd)
+        document.body.style.cursor = 'col-resize'
+        document.body.style.userSelect = 'none'
+
+        return () => {
+          document.removeEventListener('mousemove', handleResizeMove)
+          document.removeEventListener('mouseup', handleResizeEnd)
+          document.body.style.cursor = ''
+          document.body.style.userSelect = ''
         }
-      }, [isResizing, handleResizeMove, handleResizeEnd])
-      
+      }
+    }, [isResizing, handleResizeMove, handleResizeEnd])
+
     const getColumnWidth = (columnKey: string) => {
       return columnWidths[columnKey] || 200
     }
 
     // ... (useEffect for initializing column widths remains the same)
     useEffect(() => {
-        if (displayColumns.length > 0) {
-          const savedWidths = localStorage.getItem('contentManagerColumnWidths')
-          const initialWidths: { [key: string]: number } = {}
-  
-          if (savedWidths) {
-            try {
-              const parsedWidths = JSON.parse(savedWidths)
-              displayColumns.forEach(column => {
-                initialWidths[column] = parsedWidths[column] || 250
-              })
-            } catch (error) {
-              console.warn('Failed to parse saved column widths, using defaults.', error)
-              displayColumns.forEach(column => {
-                initialWidths[column] = 250
-              })
-            }
-          } else {
+      if (displayColumns.length > 0) {
+        const savedWidths = localStorage.getItem('contentManagerColumnWidths')
+        const initialWidths: { [key: string]: number } = {}
+
+        if (savedWidths) {
+          try {
+            const parsedWidths = JSON.parse(savedWidths)
+            displayColumns.forEach(column => {
+              initialWidths[column] = parsedWidths[column] || 250
+            })
+          } catch (error) {
+            console.warn('Failed to parse saved column widths, using defaults.', error)
             displayColumns.forEach(column => {
               initialWidths[column] = 250
             })
           }
-          setColumnWidths(initialWidths)
+        } else {
+          displayColumns.forEach(column => {
+            initialWidths[column] = 250
+          })
         }
-      }, [displayColumns])
+        setColumnWidths(initialWidths)
+      }
+    }, [displayColumns])
 
     // BRO: Calculate the total width of the table dynamically.
     // This is crucial for making the top scrollbar's width match the table's width.
-    const CHECKBOX_COLUMN_WIDTH = 48; // Corresponds to `w-12` in Tailwind
+    const CHECKBOX_COLUMN_WIDTH = 48 // Corresponds to `w-12` in Tailwind
     const tableWidth = useMemo(() => {
       const columnsTotalWidth = displayColumns.reduce(
         (total, key) => total + getColumnWidth(key),
         0
-      );
-      return columnsTotalWidth + CHECKBOX_COLUMN_WIDTH;
-    }, [displayColumns, columnWidths]);
-
+      )
+      return columnsTotalWidth + CHECKBOX_COLUMN_WIDTH
+    }, [displayColumns, columnWidths])
 
     return (
       <div
@@ -476,7 +467,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                             style={{ width: getColumnWidth(key) }}
                             title={String(item.exportHeaders?.[key] || item[key] || '')}
                           >
-                             {onRecordUpdate && dropdownOptions[key] ? (
+                            {onRecordUpdate && dropdownOptions[key] ? (
                               <Select
                                 value={String(
                                   item.allHeaders?.[key] || item.exportHeaders?.[key] || ''
@@ -566,8 +557,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                   </div> */}
                 </div>
               ) : (
-                <>
-                </>
+                <></>
               )}
             </div>
           </div>

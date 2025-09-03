@@ -25,7 +25,10 @@ export default async function ExportsRoute() {
               </p>
             </div>
             <div className="text-sm text-muted-foreground mb-2">
-              Last Updated: <span id="last-updated-display" className="font-medium">—</span>
+              Last Updated:{' '}
+              <span id="last-updated-display" className="font-medium">
+                —
+              </span>
             </div>
           </div>
         </div>

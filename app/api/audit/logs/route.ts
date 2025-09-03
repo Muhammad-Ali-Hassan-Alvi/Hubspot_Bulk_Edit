@@ -112,7 +112,11 @@ export async function GET(request: NextRequest) {
 
         if (log.action_type === 'bulk_edit_publish' || log.action_type === 'bulk_edit_failed') {
           // For bulk editing, prioritize stored page_changes if available
-          if (details.page_changes && Array.isArray(details.page_changes) && details.page_changes.length > 0) {
+          if (
+            details.page_changes &&
+            Array.isArray(details.page_changes) &&
+            details.page_changes.length > 0
+          ) {
             // Use the stored page_changes data directly
             changes = details.page_changes.map((change: any) => ({
               pageName: change.pageName || `Page ${change.pageId}`,
@@ -126,66 +130,62 @@ export async function GET(request: NextRequest) {
             const fieldsChanged = details.fields_changed || Object.keys(updatesApplied)
             const selectedPageIds = details.selected_page_ids || []
 
-          try {
-            if (selectedPageIds.length > 0) {
-              // Get page names and previous values from page_snapshots using the stored page IDs
-              const { data: pageSnapshots } = await supabase
-                .from('page_snapshots')
-                .select('page_id, page_name, page_data')
-                .eq('user_id', user.id)
-                .in('page_id', selectedPageIds)
+            try {
+              if (selectedPageIds.length > 0) {
+                // Get page names and previous values from page_snapshots using the stored page IDs
+                const { data: pageSnapshots } = await supabase
+                  .from('page_snapshots')
+                  .select('page_id, page_name, page_data')
+                  .eq('user_id', user.id)
+                  .in('page_id', selectedPageIds)
 
-              
+                if (pageSnapshots && pageSnapshots.length > 0) {
+                  const pageNameMap = new Map(pageSnapshots.map(ps => [ps.page_id, ps.page_name]))
+                  const pageDataMap = new Map(pageSnapshots.map(ps => [ps.page_id, ps.page_data]))
 
-              if (pageSnapshots && pageSnapshots.length > 0) {
-                const pageNameMap = new Map(pageSnapshots.map(ps => [ps.page_id, ps.page_name]))
-                const pageDataMap = new Map(pageSnapshots.map(ps => [ps.page_id, ps.page_data]))
+                  // Create changes for each field that was modified in each selected page
+                  fieldsChanged.forEach((field: string) => {
+                    selectedPageIds.forEach((pageId: string) => {
+                      const pageName = pageNameMap.get(pageId) || 'Unknown Page'
+                      const pageData = pageDataMap.get(pageId) || {}
 
-                // Create changes for each field that was modified in each selected page
-                fieldsChanged.forEach((field: string) => {
-                  selectedPageIds.forEach((pageId: string) => {
-                    const pageName = pageNameMap.get(pageId) || 'Unknown Page'
-                    const pageData = pageDataMap.get(pageId) || {}
+                      // Get the actual previous value from page_data
+                      const previousValue = pageData[field] || 'No previous value'
 
-                    // Get the actual previous value from page_data
-                    const previousValue = pageData[field] || 'No previous value'
-
-                    changes.push({
-                      pageName,
-                      field: field.charAt(0).toUpperCase() + field.slice(1),
-                      previousValue: previousValue.toString(),
-                      newValue: updatesApplied[field] || 'Updated value',
+                      changes.push({
+                        pageName,
+                        field: field.charAt(0).toUpperCase() + field.slice(1),
+                        previousValue: previousValue.toString(),
+                        newValue: updatesApplied[field] || 'Updated value',
+                      })
                     })
                   })
-                })
-
-
-              } else {
-                // Fallback if page snapshots not found
-                fieldsChanged.forEach((field: string) => {
-                  selectedPageIds.forEach((pageId: string) => {
-                    changes.push({
-                      pageName: `Page ${pageId}`,
-                      field: field.charAt(0).toUpperCase() + field.slice(1),
-                      previousValue: 'No previous value',
-                      newValue: updatesApplied[field] || 'Updated value',
+                } else {
+                  // Fallback if page snapshots not found
+                  fieldsChanged.forEach((field: string) => {
+                    selectedPageIds.forEach((pageId: string) => {
+                      changes.push({
+                        pageName: `Page ${pageId}`,
+                        field: field.charAt(0).toUpperCase() + field.slice(1),
+                        previousValue: 'No previous value',
+                        newValue: updatesApplied[field] || 'Updated value',
+                      })
                     })
+                  })
+                }
+              } else {
+                // Fallback if no selected page IDs stored
+
+                fieldsChanged.forEach((field: string) => {
+                  changes.push({
+                    pageName: 'Multiple Pages',
+                    field: field.charAt(0).toUpperCase() + field.slice(1),
+                    previousValue: 'No previous value',
+                    newValue: updatesApplied[field] || 'Updated value',
                   })
                 })
               }
-            } else {
-              // Fallback if no selected page IDs stored
-
-              fieldsChanged.forEach((field: string) => {
-                changes.push({
-                  pageName: 'Multiple Pages',
-                  field: field.charAt(0).toUpperCase() + field.slice(1),
-                  previousValue: 'No previous value',
-                  newValue: updatesApplied[field] || 'Updated value',
-                })
-              })
-            }
-                      } catch (error) {
+            } catch (error) {
               console.error('Error fetching page snapshots:', error)
               // Fallback to basic changes
               fieldsChanged.forEach((field: string) => {

@@ -172,7 +172,8 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
       const htmlTitleMatch =
         !htmlTitleSearchTerm ||
         data.htmlTitle?.toLowerCase().includes(htmlTitleSearchTerm.toLowerCase())
-      const statusMatch = stateFilter === 'all' || data.state?.toUpperCase() === stateFilter.toUpperCase()
+      const statusMatch =
+        stateFilter === 'all' || data.state?.toUpperCase() === stateFilter.toUpperCase()
 
       // Handle publish date filter
       const publishDateMatch =
@@ -203,27 +204,27 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
         if (!dateRange[0] && !dateRange[1]) {
           return true
         }
-        
+
         // If no createdAt field, exclude the item
         if (!data.createdAt) {
           return false
         }
-        
+
         const itemDate = new Date(data.createdAt)
-        
+
         // If both start and end dates are selected
         if (dateRange[0] && dateRange[1]) {
           const startDate = new Date(dateRange[0])
           const endDate = new Date(dateRange[1])
-          
+
           // Set start date to beginning of day
           startDate.setHours(0, 0, 0, 0)
           // Set end date to end of day
           endDate.setHours(23, 59, 59, 999)
-          
+
           return itemDate >= startDate && itemDate <= endDate
         }
-        
+
         // If only start date is selected, treat it as that exact day
         if (dateRange[0]) {
           const startDate = new Date(dateRange[0])
@@ -232,19 +233,25 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
           endDate.setHours(23, 59, 59, 999)
           return itemDate >= startDate && itemDate <= endDate
         }
-        
+
         // If only end date is selected
         if (dateRange[1]) {
           const endDate = new Date(dateRange[1])
           endDate.setHours(23, 59, 59, 999)
           return itemDate <= endDate
         }
-        
+
         return true
       })()
 
       return (
-        nameMatch && slugMatch && htmlTitleMatch && statusMatch && publishDateMatch && createdAtMatch && dateMatch
+        nameMatch &&
+        slugMatch &&
+        htmlTitleMatch &&
+        statusMatch &&
+        publishDateMatch &&
+        createdAtMatch &&
+        dateMatch
       )
     })
   }, [

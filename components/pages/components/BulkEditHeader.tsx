@@ -49,6 +49,7 @@ interface BulkEditHeaderProps {
   onClearSelection: () => void
   isPublishing?: boolean
   refreshCurrentPage: () => void
+  allContent: any[]
 }
 
 export default function BulkEditHeader({
@@ -58,6 +59,7 @@ export default function BulkEditHeader({
   onClearSelection,
   refreshCurrentPage,
   isPublishing = false,
+  allContent,
 }: BulkEditHeaderProps) {
   const [updates, setUpdates] = useState<{ [key: string]: any }>({})
   const [showConfirmation, setShowConfirmation] = useState(false)
@@ -68,10 +70,63 @@ export default function BulkEditHeader({
   const [uploadResults, setUploadResults] = useState({ success: 0, failed: 0 })
   const { toast } = useToast()
 
-  // Use HubSpot in-app edit fields if contentType is provided, otherwise use default fields
   const fieldsToUse = useMemo(() => {
     return _contentType ? getHubSpotInAppEditFieldsAsObjects(_contentType) : EDITABLE_FIELDS
   }, [_contentType])
+  // NEW & IMPROVED CODE
+  const fieldOptions = useMemo(() => {
+    if (!allContent || !Array.isArray(allContent)) {
+      return {}
+    }
+
+    const optionsMap: { [key: string]: string[] } = {}
+
+    // EXPANDED LIST: Add any field 'key' here that you want to be a dynamic dropdown.
+    // These keys should match the HubSpot API property names.
+    const fieldsForDropdown = [
+      'campaign',
+      'contentGroupId', // Campaign is often contentGroupId
+      'domain',
+      'language',
+      'state',
+      'subcategory',
+      'htmlTitle',
+      'name',
+      'authorName',
+      'tagIds', // This might be an array of IDs, but we can try to find names
+    ]
+
+    fieldsForDropdown.forEach(fieldKey => {
+      const values = new Set<string>()
+
+      allContent.forEach(item => {
+        // Safely access the value from the item's properties or its nested 'allHeaders'
+        const value = item.allHeaders?.[fieldKey] || item[fieldKey]
+
+        if (value) {
+          // Handle if the value is an array (like tags)
+          if (Array.isArray(value)) {
+            value.forEach(v => {
+              if (v && typeof v === 'string' && v.trim() !== '') {
+                values.add(v.trim())
+              }
+            })
+          }
+          // Handle if it's a simple string value
+          else if (typeof value === 'string' && value.trim() !== '') {
+            values.add(value.trim())
+          }
+        }
+      })
+
+      const uniqueOptions = Array.from(values)
+      if (uniqueOptions.length > 0) {
+        optionsMap[fieldKey] = uniqueOptions.sort((a, b) => a.localeCompare(b))
+      }
+    })
+
+    return optionsMap
+  }, [allContent])
 
   useEffect(() => {
     setUpdates({})
@@ -131,17 +186,14 @@ export default function BulkEditHeader({
           setCurrentStatus('Upload completed!')
           setTimeout(() => {
             setShowProgress(false)
-            // Call onConfirm after progress is complete to avoid component re-renders
             onConfirm(finalUpdates)
-            // Simulate results - in real implementation, this would come from the API response
-            // For now, assume all items were successful
             setUploadResults({ success: selectedRowCount, failed: 0 })
             setShowResults(true)
           }, 1000)
           return 100
         }
 
-        const newProgress = prev + Math.random() * 15 + 5 // Random increment between 5-20
+        const newProgress = prev + Math.random() * 15 + 5
         if (newProgress > 30 && prev <= 30) {
           setCurrentStatus('Processing items...')
         } else if (newProgress > 60 && prev <= 60) {
@@ -156,6 +208,28 @@ export default function BulkEditHeader({
   }
 
   const renderField = (field: EditableField) => {
+    const dynamicOptions = fieldOptions[field.key]
+
+    if (dynamicOptions && dynamicOptions.length > 0) {
+      return (
+        <Select
+          value={updates[field.key] ? String(updates[field.key]) : ''}
+          onValueChange={value => handleValueChange(field.key, value)}
+        >
+          <SelectTrigger className="bg-background">
+            <SelectValue placeholder={field.label} />
+          </SelectTrigger>
+          <SelectContent>
+            {dynamicOptions.map(option => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+    }
+
     switch (field.type) {
       case 'boolean':
         return (
@@ -260,6 +334,7 @@ export default function BulkEditHeader({
     }
   }
 
+  // The rest of the component remains the same...
   return (
     <>
       <Card className="bg-card text-card-foreground !rounded-t-lg rounded-none shadow-sm transition-all">
@@ -299,6 +374,7 @@ export default function BulkEditHeader({
         </CardContent>
       </Card>
 
+      {/* Dialogs... */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -314,7 +390,7 @@ export default function BulkEditHeader({
               {selectedRowCount === 1 ? 'item' : 'items'}:
             </p>
 
-                            <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar">
+            <div className="border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar">
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>

@@ -178,6 +178,31 @@ export default function Filters({
     return DROPDOWN_FIELDS.includes(fieldName) && dropdownOptions[fieldName]?.length > 0
   }
 
+  // Check if any filters are currently active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      searchTerm !== '' ||
+      slugSearchTerm !== '' ||
+      htmlTitleSearchTerm !== '' ||
+      languageFilter !== 'all' ||
+      stateFilter !== 'all' ||
+      publishDateFilter !== '' ||
+      createdAtFilter !== '' ||
+      Object.values(dynamicFilters).some(value => value !== 'all') ||
+      (dateRange && (dateRange[0] || dateRange[1]))
+    )
+  }, [
+    searchTerm,
+    slugSearchTerm,
+    htmlTitleSearchTerm,
+    languageFilter,
+    stateFilter,
+    publishDateFilter,
+    createdAtFilter,
+    dynamicFilters,
+    dateRange,
+  ])
+
   // Handle filter field change
   const handleFilterFieldChange = (fieldName: string) => {
     setSelectedFilterField(fieldName)
@@ -350,7 +375,11 @@ export default function Filters({
 
         {/* Apply and Clear buttons */}
         <div className="flex gap-2">
-          <Button onClick={handleApplyFilters} className="flex items-center gap-2" size="sm">
+          <Button
+            onClick={handleApplyFilters}
+            className={`flex items-center gap-2 ${hasActiveFilters ? '' : 'bg-gray-400 hover:bg-gray-500'}`}
+            size="sm"
+          >
             <Filter className="h-4 w-4" />
             Apply
           </Button>
@@ -359,7 +388,6 @@ export default function Filters({
           </Button>
         </div>
       </div>
-
     </div>
   )
 }

@@ -12,18 +12,20 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createClient()
-    
+
     // Check if user is already logged in (for account linking)
-    const { data: { user: existingUser } } = await supabase.auth.getUser()
-    
+    const {
+      data: { user: existingUser },
+    } = await supabase.auth.getUser()
+
     if (linkAccount && existingUser) {
       // This is an account linking scenario
       console.log('🔗 Account linking detected for user:', existingUser.id)
-      
+
       try {
         // Exchange the code for a session to get the new identity
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        
+
         if (error) {
           console.error('❌ Failed to exchange code for linking:', error)
           return NextResponse.redirect(`${origin}/auth/auth-code-error?error=link_failed`)
@@ -31,9 +33,11 @@ export async function GET(request: Request) {
 
         if (data.user) {
           console.log('✅ New identity linked successfully:', data.user.email)
-          
+
           // Redirect back to profile with success message
-          return NextResponse.redirect(`${origin}/dashboard/profile?message=account_linked&email=${data.user.email}`)
+          return NextResponse.redirect(
+            `${origin}/dashboard/profile?message=account_linked&email=${data.user.email}`
+          )
         }
       } catch (error) {
         console.error('❌ Error during account linking:', error)

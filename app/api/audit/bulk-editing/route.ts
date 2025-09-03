@@ -18,8 +18,6 @@ export async function POST(request: NextRequest) {
       pageChanges,
     } = await request.json()
 
-
-
     if (!userId || !action) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
@@ -56,8 +54,6 @@ export async function POST(request: NextRequest) {
       },
       created_at: new Date().toISOString(),
     }
-
-
 
     const { error: insertError } = await supabase.from('audit_logs').insert(logData)
 
