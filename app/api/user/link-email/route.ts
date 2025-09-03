@@ -99,7 +99,10 @@ export async function POST(request: NextRequest) {
       } catch (fallbackError) {
         console.log('❌ Fallback also failed:', fallbackError)
         return NextResponse.json(
-          { error: 'User lookup failed', details: userError?.message || 'Admin access required' },
+          {
+            error: 'User lookup failed',
+            details: (userError as any)?.message || 'Admin access required',
+          },
           { status: 500 }
         )
       }

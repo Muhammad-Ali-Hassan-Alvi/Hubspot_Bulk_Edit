@@ -341,8 +341,8 @@ export default function BulkEditHeader({
         <CardContent className="p-5 space-y-5">
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <PenSquare className="h-5 w-5" />
+              <CardTitle className="flex text-xl items-center gap-2">
+                <PenSquare className="h-4 w-4" />
                 Bulk Edit {selectedRowCount} Item(s)
               </CardTitle>
             </div>

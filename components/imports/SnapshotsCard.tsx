@@ -10,8 +10,8 @@ export const SnapshotsCard = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <ArrowBigDown className="h-5 w-5" /> Import Snapshots
+            <CardTitle className="flex items-center text-xl gap-2">
+              <ArrowBigDown className="h-4 w-4" /> Import Snapshots
             </CardTitle>
             <CardDescription className="mt-1">
               Visualize key metrics from your past imports.

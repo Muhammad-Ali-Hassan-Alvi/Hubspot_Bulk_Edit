@@ -125,8 +125,8 @@ export default function VersionHistory() {
       {/* Card Header now holds the title and the correctly placed "Coming Soon" badge */}
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+          <CardTitle className="flex text-xl items-center gap-2">
+            <History className="h-4 w-4" />
             Version History
           </CardTitle>
           <CardDescription>

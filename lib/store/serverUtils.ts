@@ -43,15 +43,37 @@ export function getClientUser() {
 
 // Utility function for API routes to get authenticated user
 export async function getAuthenticatedUser() {
-  const supabase = createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  try {
+    console.log('🔐 getAuthenticatedUser: Creating Supabase client...')
+    const supabase = createClient()
+    
+    console.log('🔐 getAuthenticatedUser: Attempting to get user...')
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-  if (authError || !user) {
-    throw new Error('Unauthorized')
+    console.log('🔐 getAuthenticatedUser: Auth response received:', {
+      hasUser: !!user,
+      hasError: !!authError,
+      errorMessage: authError?.message,
+      userId: user?.id
+    })
+
+    if (authError) {
+      console.error('❌ getAuthenticatedUser: Auth error:', authError)
+      throw new Error(`Authentication error: ${authError.message}`)
+    }
+
+    if (!user) {
+      console.error('❌ getAuthenticatedUser: No user found')
+      throw new Error('No authenticated user found')
+    }
+
+    console.log('✅ getAuthenticatedUser: User authenticated successfully:', user.id)
+    return user
+  } catch (error) {
+    console.error('❌ getAuthenticatedUser: Unexpected error:', error)
+    throw error
   }
-
-  return user
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 // import type { User } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
@@ -24,17 +24,79 @@ export default function DashboardOverviewPage() {
   const [hubspotModalOpen, setHubspotModalOpen] = useState(false)
   const [googleModalOpen, setGoogleModalOpen] = useState(false)
   const [contentRefreshKey, setContentRefreshKey] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const isRefreshingRef = useRef(false)
+  const googleOAuthSuccessRef = useRef(false)
 
   const fetchUserData = useCallback(async () => {
     if (!user) {
       router.push('/auth')
       return
     }
-    // Use Redux user settings
-    if (reduxUserSettings) {
-      setUserSettings(reduxUserSettings)
+    
+    // Don't fetch if we already have userSettings
+    if (userSettings) {
+      return
     }
-  }, [user, router, reduxUserSettings])
+    
+    setIsLoading(true)
+    
+    try {
+      // Fetch fresh user settings from the API
+      const response = await fetch('/api/user/settings')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.settings) {
+          setUserSettings(data.settings)
+          // Also update Redux store
+          if (updateSettings) {
+            await updateSettings(user.id, data.settings)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      // Fallback to Redux user settings
+      if (reduxUserSettings) {
+        setUserSettings(reduxUserSettings)
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user, router, updateSettings, reduxUserSettings]) // Removed userSettings from dependencies
+
+  // Manual refresh function for when we need fresh data
+  const refreshUserData = useCallback(async () => {
+    if (!user) return
+    
+    // Prevent multiple simultaneous refresh calls
+    if (isRefreshingRef.current) {
+      return
+    }
+    
+    isRefreshingRef.current = true
+    setIsLoading(true)
+    
+    try {
+      const response = await fetch('/api/user/settings')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.settings) {
+          setUserSettings(data.settings)
+          if (updateSettings) {
+            await updateSettings(user.id, data.settings)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error manually refreshing user data:', error)
+    } finally {
+      isRefreshingRef.current = false
+      setIsLoading(false)
+    }
+  }, [user, updateSettings])
+
+
 
   useEffect(() => {
     fetchUserData()
@@ -46,13 +108,38 @@ export default function DashboardOverviewPage() {
       setSuccessMessage('HubSpot has been connected successfully! 🎉')
       setContentRefreshKey(prevKey => prevKey + 1)
       router.replace('/dashboard', { scroll: false })
-    } else if (googleSuccess) {
+    } else if (googleSuccess && !googleOAuthSuccessRef.current) {
+      googleOAuthSuccessRef.current = true
       setSuccessMessage('Google Sheets has been connected successfully! 📊')
+      // Clear the success parameter immediately to prevent multiple triggers
       router.replace('/dashboard', { scroll: false })
+      // Refresh data once for Google connection
+      setTimeout(() => {
+        refreshUserData()
+        // Reset the flag after a delay
+        setTimeout(() => {
+          googleOAuthSuccessRef.current = false
+        }, 2000)
+      }, 100)
     }
-  }, [searchParams, router, fetchUserData])
+  }, [searchParams, router, fetchUserData, refreshUserData])
 
-  const handleConnectionUpdate = (service: 'hubspot' | 'google', connected: boolean) => {
+  // Only refresh data when userSettings changes or when explicitly needed
+  useEffect(() => {
+    if (user && !userSettings) {
+      fetchUserData()
+    }
+  }, [user, userSettings]) // Removed fetchUserData from dependencies to prevent infinite loop
+
+  // Cleanup effect to reset flags
+  useEffect(() => {
+    return () => {
+      googleOAuthSuccessRef.current = false
+      isRefreshingRef.current = false
+    }
+  }, [])
+
+  const handleConnectionUpdate = async (service: 'hubspot' | 'google', connected: boolean) => {
     if (connected) {
       if (service === 'hubspot') {
         setSuccessMessage('HubSpot has been connected successfully! 🎉')
@@ -62,12 +149,21 @@ export default function DashboardOverviewPage() {
         setSuccessMessage('Google Sheets has been connected successfully! 📊')
         setGoogleModalOpen(false)
       }
+      
+      // Show loading state while refreshing data
+      setIsLoading(true)
+      
+      // Force refresh user data to update connection status
+      await refreshUserData()
+      
+      // Loading state will be cleared by refreshUserData
     }
-    fetchUserData()
   }
 
   const handleDisconnect = async (service: 'hubspot' | 'google') => {
     setIsDisconnecting(service)
+    setIsLoading(true)
+    
     if (!user) {
       toast({
         title: 'Error',
@@ -75,6 +171,7 @@ export default function DashboardOverviewPage() {
         variant: 'destructive',
       })
       setIsDisconnecting(null)
+      setIsLoading(false)
       return
     }
     try {
@@ -117,14 +214,14 @@ export default function DashboardOverviewPage() {
       })
     } finally {
       setIsDisconnecting(null)
+      setIsLoading(false)
     }
   }
 
-  console.log('UMAR userSettings', userSettings)
-  console.log('UMAR user', user)
 
-  // Show loading only if user is not available
-  if (!user) {
+
+  // Show loading only if user is not available or data is loading
+  if (!user || isLoading) {
     return (
       <div className="w-full space-y-6">
         <div>
@@ -148,9 +245,16 @@ export default function DashboardOverviewPage() {
   }
 
   // For new users, userSettings might be null - that's okay, show the connection options
-  const isHubSpotConnected =
-    !!userSettings?.hubspot_token_encrypted || !!userSettings?.hubspot_access_token
-  const isGoogleConnected = !!userSettings?.google_refresh_token
+  const isHubSpotConnected = userSettings ? (
+    !!userSettings.hubspot_token_encrypted || 
+    !!userSettings.hubspot_access_token || 
+    !!userSettings.hubspot_connection_type
+  ) : false
+  
+  const isGoogleConnected = userSettings ? (
+    !!userSettings.google_refresh_token || 
+    !!userSettings.google_access_token
+  ) : false
 
   return (
     <div className="w-full space-y-6">
@@ -161,6 +265,17 @@ export default function DashboardOverviewPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Your Hubspot Management Partner</p>
       </div>
+      
+      {/* Show loading overlay when refreshing data */}
+      {isRefreshingRef.current && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-background border rounded-lg p-6 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <span className="text-sm font-medium">Refreshing connection data...</span>
+          </div>
+        </div>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
           <HubSpot

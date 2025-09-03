@@ -20,7 +20,7 @@ export default async function ExportsRoute() {
           <div className="flex items-end justify-between">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Exports</h1>
-              <p className="mt-1 mb-2.5 text-muted-foreground">
+              <p className="mt-0.5 !mb-6 text-muted-foreground">
                 Export data from HubSpot to Google Sheets for bulk editing.
               </p>
             </div>

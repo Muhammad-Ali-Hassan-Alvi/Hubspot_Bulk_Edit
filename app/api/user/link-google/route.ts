@@ -90,11 +90,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Unlink the identity
-    const { error: unlinkError } = await supabase.auth.admin.unlinkIdentity(userId, identityId)
-
-    if (unlinkError) {
-      return NextResponse.json({ error: unlinkError.message }, { status: 500 })
-    }
+    // Note: unlinkIdentity is not available in current Supabase version
+    // We'll need to handle this differently - for now, return an error
+    return NextResponse.json(
+      { error: 'Unlinking identities is not supported in current version' },
+      { status: 501 }
+    )
 
     return NextResponse.json({
       success: true,

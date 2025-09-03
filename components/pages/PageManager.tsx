@@ -426,7 +426,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     searchTerm,
     slugSearchTerm,
     htmlTitleSearchTerm,
-    status,
     stateFilter,
     languageFilter,
     publishDateFilter,
@@ -821,8 +820,8 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
       <Card>
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <FileText className="h-4 w-4" />
               Content Manager
             </CardTitle>
             <CardDescription className="mt-2">

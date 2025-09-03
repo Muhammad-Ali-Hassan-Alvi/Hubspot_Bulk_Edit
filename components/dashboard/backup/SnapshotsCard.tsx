@@ -10,8 +10,8 @@ export const SnapshotsCard = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" /> Backup Snapshots
+            <CardTitle className="flex text-xl items-center gap-2">
+              <Download className="h-4 w-4" /> Backup Snapshots
             </CardTitle>
             <CardDescription className="mt-1">
               Visualize key metrics from your past backups.

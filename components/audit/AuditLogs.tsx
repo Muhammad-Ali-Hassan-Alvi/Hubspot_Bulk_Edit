@@ -289,7 +289,7 @@ export default function AuditLogs() {
       <div className="flex items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2 text-xl">
-            <LogIcon className="h-5 w-5" />
+            <LogIcon className="h-4 w-4" />
             {logTypeInfo.title} ({filteredLogs.length} entries)
           </CardTitle>
           <CardDescription>{logTypeInfo.description}</CardDescription>

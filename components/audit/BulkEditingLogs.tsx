@@ -19,17 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  RefreshCw,
-  FileText,
-  CalendarIcon,
-  Activity,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-} from 'lucide-react'
+import { RefreshCw, FileText, Activity, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { SupabaseUser } from '@/lib/supabase/types'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface BulkEditingLog {
   id: string
@@ -63,12 +55,8 @@ interface LogDetails {
   newValue: string
 }
 
-interface PageChanges {
-  changes: LogDetails[]
-}
-
 export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser }) {
-  const [logs, setLogs] = useState<BulkEditingLog[]>([])
+  const [_logs, setLogs] = useState<BulkEditingLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<BulkEditingLog[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLog, setSelectedLog] = useState<BulkEditingLog | null>(null)

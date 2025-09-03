@@ -66,6 +66,12 @@ export default function HubSpotConnect({
     setIsConnected(isAnyTokenPresent)
     setConnectionType(userSettings?.hubspot_connection_type || null)
     setDomain(userSettings?.website_domain || '')
+    
+    // Clear local state if no connection
+    if (!isAnyTokenPresent) {
+      setToken('')
+      setTestResults(null)
+    }
   }, [userSettings])
 
   useEffect(() => {
@@ -165,6 +171,17 @@ export default function HubSpotConnect({
         if (saved) {
           setIsConnected(true)
           setConnectionType('paid')
+          // Update local state to reflect connection
+          setToken('')
+          // Clear test results
+          setTestResults(null)
+          // Notify parent component to refresh data
+          onConnectionUpdate?.(true)
+          // Show success message
+          toast({
+            title: 'HubSpot Connected Successfully! 🎉',
+            description: `Connected to ${data.portalName || 'HubSpot'} (Portal ID: ${data.portalId})`,
+          })
         }
       } else {
         toast({
@@ -275,11 +292,7 @@ export default function HubSpotConnect({
               'Connect your HubSpot account using a Private App Token (recommended) or OAuth.'
             ) : (
               <>
-                Ready to manage and sync your HubSpot content for{' '}
-                <Link href="/backup" className="text-blue-600 hover:text-blue-800 underline">
-                  bulk editing
-                </Link>{' '}
-                and more.
+                Ready to manage and sync your HubSpot content for bulk editin and more.
               </>
             )}
           </CardDescription>

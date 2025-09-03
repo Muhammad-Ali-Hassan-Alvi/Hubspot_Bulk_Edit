@@ -300,9 +300,12 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
       }
     }, [isResizing, handleResizeMove, handleResizeEnd])
 
-    const getColumnWidth = (columnKey: string) => {
-      return columnWidths[columnKey] || 200
-    }
+    const getColumnWidth = useCallback(
+      (columnKey: string) => {
+        return columnWidths[columnKey] || 200
+      },
+      [columnWidths]
+    )
 
     // ... (useEffect for initializing column widths remains the same)
     useEffect(() => {
@@ -340,7 +343,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
         0
       )
       return columnsTotalWidth + CHECKBOX_COLUMN_WIDTH
-    }, [displayColumns, columnWidths])
+    }, [displayColumns, getColumnWidth])
 
     return (
       <div

@@ -72,7 +72,7 @@ export default function DashboardClientLayout({ children }: { children: React.Re
         )}
       >
         <Navbar />
-        <div className="flex-1 p-4 !pb-20 sm:p-6 lg:p-8 bg-content [&>*]:bg-content">
+        <div className="flex-1 p-4 !pb-20 sm:p-6 lg:px-8 lg:pb-8 lg:pt-6 bg-content [&>*]:bg-content">
           {children}
         </div>
         <Footer

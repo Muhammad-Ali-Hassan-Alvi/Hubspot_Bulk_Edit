@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Mail, MoreHorizontal, Eye, EyeOff, Plus, X } from 'lucide-react'
+import { Loader2, Mail, MoreHorizontal, Eye, EyeOff, Plus } from 'lucide-react'
 import GoogleIcon from '@/components/icons/GoogleIcon'
 import { Badge } from '@/components/ui/badge'
 import { InputWithIcon } from '@/components/ui/input-with-icon'
@@ -425,7 +425,7 @@ export default function SignInMethods({
               {/* Email Accounts Section */}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-muted-foreground">Email Accounts</h3>
-                {allEmailAccounts.map((account, index) => (
+                {allEmailAccounts.map((account, _index) => (
                   <div
                     key={account.email}
                     className="flex justify-between items-center border-b pb-3"

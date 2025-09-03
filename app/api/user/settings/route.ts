@@ -4,10 +4,15 @@ import { getServerUserSettings, getAuthenticatedUser } from '@/lib/store/serverU
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔐 Settings API: Starting authentication check...')
+    
     const user = await getAuthenticatedUser()
+    console.log('✅ Settings API: User authenticated successfully:', user.id)
+    
     const supabase = createClient()
 
     const body = await request.json()
+    console.log('📝 Settings API: Request body received:', Object.keys(body))
 
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -40,19 +45,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('💾 Settings API: Attempting to upsert data for user:', user.id)
+    console.log('📊 Settings API: Data to update:', Object.keys(updateData))
+
     const { error: upsertError } = await supabase
       .from('user_settings')
       .upsert({ user_id: user.id, ...updateData }, { onConflict: 'user_id' })
 
     if (upsertError) {
+      console.error('❌ Settings API: Database upsert failed:', upsertError)
       return NextResponse.json(
         { success: false, error: `Failed to save settings: ${upsertError.message}` },
         { status: 500 }
       )
     }
 
+    console.log('✅ Settings API: Settings saved successfully')
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('❌ Settings API: Authentication or other error:', error)
+    
+    // Check if it's an authentication error specifically
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication failed. Please refresh the page and try again.',
+          details: 'Your session may have expired. Please log in again.',
+        },
+        { status: 401 }
+      )
+    }
+    
     return NextResponse.json(
       {
         success: false,

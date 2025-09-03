@@ -11,8 +11,8 @@ export const SnapshotsCard = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <ClockArrowDown className="h-5 w-5" /> Historical Snapshots
+            <CardTitle className="flex items-center text-xl gap-2">
+              <ClockArrowDown className="h-4 w-4" /> Historical Snapshots
             </CardTitle>
             <CardDescription className="mt-1">
               Track your content growth over time. Powered by your store history.

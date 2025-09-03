@@ -32,7 +32,7 @@ const ValueBadge = ({
     page: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors',
     previous:
       'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors',
-      new: 'bg-green-200 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors',
+    new: 'bg-green-200 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors',
   }
 
   return (

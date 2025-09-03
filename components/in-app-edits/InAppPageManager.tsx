@@ -259,7 +259,6 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
     searchTerm,
     slugSearchTerm,
     htmlTitleSearchTerm,
-    status,
     stateFilter,
     publishDateFilter,
     createdAtFilter,

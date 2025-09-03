@@ -67,7 +67,6 @@ DatePickerCustomInput.displayName = 'DatePickerCustomInput'
 
 const DROPDOWN_FIELDS = ['authorName', 'domain', 'htmlTitle', 'language', 'slug', 'name']
 
-
 export default function Filters({
   searchTerm,
   setSearchTerm,
@@ -158,7 +157,6 @@ export default function Filters({
     dynamicFilters,
   ])
 
-
   // <<< CHANGE 1: CREATE A STATE FOR THE BUTTON'S DISABLED STATUS
   // This will determine if the "Apply" button is clickable.
   // It's enabled only if there's a temporary value that is not empty and not 'all'.
@@ -168,7 +166,6 @@ export default function Filters({
     }
     return false // Enable the button
   }, [tempFilterValue])
-
 
   // ... (handleApplyFilters, handleClearFilters, etc. remain the same) ...
   const formatFieldName = (fieldName: string) => {
@@ -180,34 +177,6 @@ export default function Filters({
     const headerInfo = getHeaderInfo(fieldName, contentType)
     return headerInfo?.dataType || 'string'
   }
-
-  const shouldUseDropdown = (fieldName: string) => {
-    return DROPDOWN_FIELDS.includes(fieldName) && dropdownOptions[fieldName]?.length > 0
-  }
-
-  const hasActiveFilters = useMemo(() => {
-    return (
-      searchTerm !== '' ||
-      slugSearchTerm !== '' ||
-      htmlTitleSearchTerm !== '' ||
-      languageFilter !== 'all' ||
-      stateFilter !== 'all' ||
-      publishDateFilter !== '' ||
-      createdAtFilter !== '' ||
-      Object.values(dynamicFilters).some(value => value !== 'all') ||
-      (dateRange && (dateRange[0] || dateRange[1]))
-    )
-  }, [
-    searchTerm,
-    slugSearchTerm,
-    htmlTitleSearchTerm,
-    languageFilter,
-    stateFilter,
-    publishDateFilter,
-    createdAtFilter,
-    dynamicFilters,
-    dateRange,
-  ])
 
   const handleFilterFieldChange = (fieldName: string) => {
     setSelectedFilterField(fieldName)
@@ -295,7 +264,6 @@ export default function Filters({
     return `Search by ${fieldDisplayName}...`
   }
 
-
   return (
     <div className="flex flex-wrap gap-3 items-center">
       <div className="flex flex-1 min-w-[300px] gap-2">
@@ -313,9 +281,8 @@ export default function Filters({
           </SelectContent>
         </Select>
 
-
         {/* ... (The value selector and input remain the same) ... */}
-         {selectedFilterField !== 'publishDate' ? (
+        {selectedFilterField !== 'publishDate' ? (
           <Select value={tempFilterValue} onValueChange={handleTempFilterValueChange}>
             <SelectTrigger className="w-[250px]">
               <SelectValue placeholder={`Select ${formatFieldName(selectedFilterField)}`} />
