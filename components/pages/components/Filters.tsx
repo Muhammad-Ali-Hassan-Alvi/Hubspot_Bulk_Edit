@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useState, useEffect, useMemo } from 'react'
+import { forwardRef, useState, useEffect, useMemo } from 'react' // No change here
 import { Search, CalendarIcon, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,8 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { getHubSpotFilterableFields, getHeaderInfo } from '@/lib/utils'
 import React from 'react'
+
+// ... (interfaces and other functions remain the same) ...
 
 interface HubSpotContent {
   id: string
@@ -63,8 +65,8 @@ const DatePickerCustomInput = forwardRef(({ value, onClick, placeholder }: any, 
 ))
 DatePickerCustomInput.displayName = 'DatePickerCustomInput'
 
-// Fields that should use dropdowns instead of text input
 const DROPDOWN_FIELDS = ['authorName', 'domain', 'htmlTitle', 'language', 'slug', 'name']
+
 
 export default function Filters({
   searchTerm,
@@ -88,16 +90,14 @@ export default function Filters({
   setDateRange,
   content = [],
 }: FilterProps) {
-  // Get filterable fields for the current content type
   const filterableFields = contentType ? Array.from(getHubSpotFilterableFields(contentType)) : []
-  // Exclude 'state' from the main dropdown; it will have its own dedicated control
   const displayedFilterFields = filterableFields.filter(field => field !== 'state')
 
-  // State for the selected filter field and its value (temporary until Apply is clicked)
   const [selectedFilterField, setSelectedFilterField] = useState<string>('name')
   const [tempFilterValue, setTempFilterValue] = useState<string>('')
 
-  // Generate dropdown options for fields that should use dropdowns
+  // ... (dropdownOptions and useEffect remain the same) ...
+
   const dropdownOptions = useMemo(() => {
     const options: { [key: string]: string[] } = {}
 
@@ -117,7 +117,6 @@ export default function Filters({
     return options
   }, [content])
 
-  // Initialize temp filter value based on current active filter
   useEffect(() => {
     let currentValue = ''
     switch (selectedFilterField) {
@@ -141,11 +140,9 @@ export default function Filters({
         break
       case 'authorName':
       case 'domain':
-        // For dropdown fields, check dynamic filters
         currentValue = dynamicFilters[selectedFilterField] || 'all'
         break
       default:
-        // For dynamic filters, we'll handle this differently
         break
     }
     setTempFilterValue(currentValue)
@@ -161,24 +158,33 @@ export default function Filters({
     dynamicFilters,
   ])
 
-  // Helper function to format field name for display
+
+  // <<< CHANGE 1: CREATE A STATE FOR THE BUTTON'S DISABLED STATUS
+  // This will determine if the "Apply" button is clickable.
+  // It's enabled only if there's a temporary value that is not empty and not 'all'.
+  const isApplyDisabled = useMemo(() => {
+    if (!tempFilterValue || tempFilterValue.trim() === '' || tempFilterValue === 'all') {
+      return true // Disable the button
+    }
+    return false // Enable the button
+  }, [tempFilterValue])
+
+
+  // ... (handleApplyFilters, handleClearFilters, etc. remain the same) ...
   const formatFieldName = (fieldName: string) => {
     return fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/([A-Z])/g, ' $1')
   }
 
-  // Helper function to get field type for appropriate input
   const getFieldType = (fieldName: string) => {
     if (!contentType) return 'string'
     const headerInfo = getHeaderInfo(fieldName, contentType)
     return headerInfo?.dataType || 'string'
   }
 
-  // Check if a field should use dropdown
   const shouldUseDropdown = (fieldName: string) => {
     return DROPDOWN_FIELDS.includes(fieldName) && dropdownOptions[fieldName]?.length > 0
   }
 
-  // Check if any filters are currently active
   const hasActiveFilters = useMemo(() => {
     return (
       searchTerm !== '' ||
@@ -203,20 +209,17 @@ export default function Filters({
     dateRange,
   ])
 
-  // Handle filter field change
   const handleFilterFieldChange = (fieldName: string) => {
     setSelectedFilterField(fieldName)
-    setTempFilterValue('') // Clear the temporary filter value when changing fields
+    setTempFilterValue('')
   }
 
-  // Handle temporary filter value change (doesn't apply immediately)
   const handleTempFilterValueChange = (value: string) => {
     setTempFilterValue(value)
   }
 
-  // Apply filters when Apply button is clicked or Enter is pressed
   const handleApplyFilters = () => {
-    // Reset all filter states first
+    // This logic stays the same, but now it's only callable when the button is enabled.
     setSearchTerm('')
     setSlugSearchTerm('')
     setHtmlTitleSearchTerm('')
@@ -226,7 +229,6 @@ export default function Filters({
     setCreatedAtFilter('')
     setDynamicFilters({})
 
-    // Apply the selected filter based on the field
     switch (selectedFilterField) {
       case 'name':
         setSearchTerm(tempFilterValue)
@@ -251,7 +253,6 @@ export default function Filters({
         break
       case 'authorName':
       case 'domain':
-        // For dropdown fields, use dynamic filters
         if (tempFilterValue.trim() !== '' && tempFilterValue !== 'all') {
           setDynamicFilters((prev: { [key: string]: string }) => ({
             ...prev,
@@ -260,7 +261,6 @@ export default function Filters({
         }
         break
       default:
-        // For all other fields, use dynamic filters
         if (tempFilterValue.trim() !== '') {
           setDynamicFilters((prev: { [key: string]: string }) => ({
             ...prev,
@@ -271,14 +271,12 @@ export default function Filters({
     }
   }
 
-  // Handle Enter key press
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter') {
       handleApplyFilters()
     }
   }
 
-  // Clear all filters
   const handleClearFilters = () => {
     setTempFilterValue('')
     setSearchTerm('')
@@ -292,16 +290,16 @@ export default function Filters({
     if (setDateRange) setDateRange([null, null])
   }
 
-  // Get placeholder text based on selected field
   const getPlaceholderText = (fieldName: string) => {
     const fieldDisplayName = formatFieldName(fieldName)
     return `Search by ${fieldDisplayName}...`
   }
 
+
   return (
     <div className="flex flex-wrap gap-3 items-center">
-      {/* Filter Field Selector and Search Input */}
       <div className="flex flex-1 min-w-[300px] gap-2">
+        {/* ... (Select for field name remains the same) ... */}
         <Select value={selectedFilterField} onValueChange={handleFilterFieldChange}>
           <SelectTrigger className="w-[150px]">
             <SelectValue />
@@ -315,7 +313,9 @@ export default function Filters({
           </SelectContent>
         </Select>
 
-        {selectedFilterField !== 'publishDate' ? (
+
+        {/* ... (The value selector and input remain the same) ... */}
+         {selectedFilterField !== 'publishDate' ? (
           <Select value={tempFilterValue} onValueChange={handleTempFilterValueChange}>
             <SelectTrigger className="w-[250px]">
               <SelectValue placeholder={`Select ${formatFieldName(selectedFilterField)}`} />
@@ -343,7 +343,7 @@ export default function Filters({
           </div>
         )}
 
-        {/* Dedicated State dropdown */}
+        {/* ... (Other filters like State and DatePicker remain the same) ... */}
         <Select value={stateFilter} onValueChange={value => setStateFilter(value)}>
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="State" />
@@ -357,7 +357,6 @@ export default function Filters({
           </SelectContent>
         </Select>
 
-        {/* Always-visible Created At date range picker */}
         <div className="relative !z-0">
           <DatePicker
             selectsRange
@@ -373,12 +372,15 @@ export default function Filters({
           />
         </div>
 
-        {/* Apply and Clear buttons */}
         <div className="flex gap-2">
+          {/* <<< CHANGE 2: UPDATE THE APPLY BUTTON LOGIC */}
+          {/* Use the standard `disabled` prop and our new state variable. */}
+          {/* The UI library will handle the grey/black color change automatically. */}
           <Button
             onClick={handleApplyFilters}
-            className={`flex items-center gap-2 ${hasActiveFilters ? '' : 'bg-gray-400 hover:bg-gray-500'}`}
+            className="flex items-center gap-2" // Removed the custom grey background classes
             size="sm"
+            disabled={isApplyDisabled} // This is the key change!
           >
             <Filter className="h-4 w-4" />
             Apply
