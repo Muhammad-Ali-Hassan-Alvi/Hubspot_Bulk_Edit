@@ -21,17 +21,8 @@ export const EXCLUDED_KEYS_FROM_TABLE = new Set([
   'widgets',
 ])
 
-export const CONTENT_TYPES = [
-  // { value: 'all-pages', label: 'All Pages' },
-  { value: 'landing-pages', label: 'Landing Pages' },
-  { value: 'site-pages', label: 'Website Pages' },
-  { value: 'blog-posts', label: 'Blog Posts' },
-  { value: 'blogs', label: 'Blogs' },
-  { value: 'tags', label: 'Tags' },
-  { value: 'authors', label: 'Authors' },
-  { value: 'url-redirects', label: 'URL Redirects' },
-  { value: 'hubdb-tables', label: 'HubDB Tables' },
-] as const
+// Content types are now fetched dynamically from Supabase
+// Use fetchContentTypes() from @/lib/content-types instead
 
 // Fields that are in-app editable (should be excluded from export headers)
 // This is now dynamically generated from the HubSpot headers system
@@ -85,18 +76,7 @@ export const RECOMMENDED_EXPORT_FIELDS = new Set([
   'pageRedirected',
 ])
 
-// Content type mapping for API endpoints
-export const CONTENT_TYPE_MAPPING = {
-  'all-pages': 'All Pages',
-  'landing-pages': 'Landing Pages',
-  'site-pages': 'Website Pages',
-  'blog-posts': 'Blog Posts',
-  blogs: 'Blogs',
-  tags: 'Tags',
-  authors: 'Authors',
-  'url-redirects': 'URL Redirects',
-  'hubdb-tables': 'HubDB Tables',
-} as const
+// Content type mapping is now dynamic - use fetchContentTypes() from @/lib/content-types
 
 // Unified editable fields based on specific requirements
 export const EDITABLE_FIELDS = [

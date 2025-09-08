@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import 'react-datepicker/dist/react-datepicker.css'
-import { CONTENT_TYPES, CONTENT_TYPE_MAPPING } from '@/lib/constants'
+import { useContentTypes } from '@/hooks/useContentTypes'
 
 import CsvExportTab from './components/CsvExportTab'
 import GSheetsExportTab from './components/GSheetsExportTab'
@@ -85,13 +85,15 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   const scrollPositionRef = useRef<number>(0)
   const dataTableRef = useRef<HTMLDivElement>(null)
 
+  // Fetch dynamic content types
+  const { contentTypes } = useContentTypes()
+
   const totalPages = Math.ceil(totalItems / itemsPerPage)
   const currentContentTypeLabel =
-    CONTENT_TYPES.find(ct => ct.value === contentType)?.label || 'Landing Pages'
+    contentTypes.find(ct => ct.value === contentType)?.label || 'Landing Pages'
 
   // Convert API contentType to HubSpot content type format
-  const hubSpotContentType =
-    CONTENT_TYPE_MAPPING[contentType as keyof typeof CONTENT_TYPE_MAPPING] || 'Landing Pages'
+  const hubSpotContentType = currentContentTypeLabel
 
   // Get the content type of selected items for bulk editing
   // const getSelectedItemsContentType = () => {
@@ -834,7 +836,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
                 <SelectValue placeholder="Select content type" />
               </SelectTrigger>
               <SelectContent>
-                {CONTENT_TYPES.map(contentTypeOption => (
+                {contentTypes.map(contentTypeOption => (
                   <SelectItem key={contentTypeOption.value} value={contentTypeOption.value}>
                     {contentTypeOption.label}
                   </SelectItem>
@@ -898,6 +900,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             dateRange={dateRange}
             setDateRange={setDateRange}
             content={content}
+            hubspotToken={hubspotToken}
           />
         </CardContent>
       </Card>

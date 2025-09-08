@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useState, useEffect, useMemo } from 'react' // No change here
+import { forwardRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, CalendarIcon, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,7 @@ interface FilterProps {
   dateRange?: [Date | null, Date | null]
   setDateRange?: (dateRange: [Date | null, Date | null]) => void
   content?: HubSpotContent[]
+  hubspotToken?: string
 }
 
 const DatePickerCustomInput = forwardRef(({ value, onClick, placeholder }: any, ref: any) => (
@@ -65,7 +66,16 @@ const DatePickerCustomInput = forwardRef(({ value, onClick, placeholder }: any, 
 ))
 DatePickerCustomInput.displayName = 'DatePickerCustomInput'
 
-const DROPDOWN_FIELDS = ['authorName', 'domain', 'htmlTitle', 'language', 'slug', 'name']
+const DROPDOWN_FIELDS = [
+  'authorName',
+  'domain',
+  'htmlTitle',
+  'language',
+  'slug',
+  'name',
+  'destination',
+  'routePrefix',
+]
 
 export default function Filters({
   searchTerm,
@@ -88,12 +98,91 @@ export default function Filters({
   dateRange,
   setDateRange,
   content = [],
+  hubspotToken,
 }: FilterProps) {
   const filterableFields = contentType ? Array.from(getHubSpotFilterableFields(contentType)) : []
   const displayedFilterFields = filterableFields.filter(field => field !== 'state')
 
-  const [selectedFilterField, setSelectedFilterField] = useState<string>('name')
+  // Set appropriate default filter field based on content type
+  const getDefaultFilterField = (contentType?: string, availableFields?: string[]): string => {
+    if (!contentType) return 'name'
+
+    // Get the first available filterable field for this content type
+    if (availableFields && availableFields.length > 0) {
+      return availableFields[0]
+    }
+
+    // Fallback to common fields
+    switch (contentType) {
+      case 'url-redirects':
+        return 'destination' // Most relevant field for URL redirects
+      case 'blog-posts':
+        return 'htmlTitle' // More relevant than name for blog posts
+      case 'site-pages':
+      case 'landing-pages':
+        return 'name' // Name is appropriate for pages
+      default:
+        return 'name'
+    }
+  }
+
+  const [selectedFilterField, setSelectedFilterField] = useState<string>(
+    getDefaultFilterField(contentType, displayedFilterFields)
+  )
   const [tempFilterValue, setTempFilterValue] = useState<string>('')
+
+  // Lazy loading dropdown options for filters
+  const [filterDropdownOptions, setFilterDropdownOptions] = useState<{ [key: string]: string[] }>(
+    {}
+  )
+  const [loadingFilterOptions, setLoadingFilterOptions] = useState<{ [key: string]: boolean }>({})
+  const [loadedFilterFields, setLoadedFilterFields] = useState<Set<string>>(new Set())
+
+  // Fetch specific filter dropdown options
+  const fetchFilterDropdownOptions = useCallback(
+    async (fieldKey: string) => {
+      if (!hubspotToken || loadedFilterFields.has(fieldKey)) {
+        return
+      }
+
+      setLoadingFilterOptions(prev => ({ ...prev, [fieldKey]: true }))
+      try {
+        const response = await fetch('/api/hubspot/dropdown-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hubspotToken: hubspotToken,
+            contentType: contentType || 'all-pages',
+            specificField: fieldKey,
+          }),
+        })
+
+        const data = await response.json()
+        if (data.success && data.dropdownOptions[fieldKey]) {
+          setFilterDropdownOptions(prev => ({
+            ...prev,
+            [fieldKey]: data.dropdownOptions[fieldKey],
+          }))
+          setLoadedFilterFields(prev => new Set([...prev, fieldKey]))
+        }
+      } catch (error) {
+        console.error(`Failed to fetch filter dropdown options for ${fieldKey}:`, error)
+      } finally {
+        setLoadingFilterOptions(prev => ({ ...prev, [fieldKey]: false }))
+      }
+    },
+    [hubspotToken, contentType, loadedFilterFields]
+  )
+
+  // Update selected filter field when content type changes
+  useEffect(() => {
+    // Only update if the current selected field is not available in the new content type
+    if (!displayedFilterFields.includes(selectedFilterField)) {
+      const defaultField = getDefaultFilterField(contentType, displayedFilterFields)
+      setSelectedFilterField(defaultField)
+    }
+    setTempFilterValue('')
+  }, [contentType]) // Only depend on contentType, not displayedFilterFields
 
   // ... (dropdownOptions and useEffect remain the same) ...
 
@@ -103,6 +192,7 @@ export default function Filters({
     DROPDOWN_FIELDS.forEach(field => {
       const uniqueValues = new Set<string>()
 
+      // Add options from current content
       content.forEach(item => {
         const value = item[field] || item.exportHeaders?.[field] || item.allHeaders?.[field]
         if (value && typeof value === 'string' && value.trim() !== '') {
@@ -110,11 +200,18 @@ export default function Filters({
         }
       })
 
+      // Add options from HubSpot API (if loaded)
+      if (filterDropdownOptions[field]) {
+        filterDropdownOptions[field].forEach(option => {
+          uniqueValues.add(option)
+        })
+      }
+
       options[field] = Array.from(uniqueValues).sort()
     })
 
     return options
-  }, [content])
+  }, [content, filterDropdownOptions])
 
   useEffect(() => {
     let currentValue = ''
@@ -139,6 +236,8 @@ export default function Filters({
         break
       case 'authorName':
       case 'domain':
+      case 'destination':
+      case 'routePrefix':
         currentValue = dynamicFilters[selectedFilterField] || 'all'
         break
       default:
@@ -222,6 +321,8 @@ export default function Filters({
         break
       case 'authorName':
       case 'domain':
+      case 'destination':
+      case 'routePrefix':
         if (tempFilterValue.trim() !== '' && tempFilterValue !== 'all') {
           setDynamicFilters((prev: { [key: string]: string }) => ({
             ...prev,
@@ -283,17 +384,32 @@ export default function Filters({
 
         {/* ... (The value selector and input remain the same) ... */}
         {selectedFilterField !== 'publishDate' ? (
-          <Select value={tempFilterValue} onValueChange={handleTempFilterValueChange}>
+          <Select
+            value={tempFilterValue}
+            onValueChange={handleTempFilterValueChange}
+            onOpenChange={open => {
+              // Fetch options when dropdown opens if not already loaded
+              if (open && !loadedFilterFields.has(selectedFilterField)) {
+                fetchFilterDropdownOptions(selectedFilterField)
+              }
+            }}
+          >
             <SelectTrigger className="w-[250px]">
               <SelectValue placeholder={`Select ${formatFieldName(selectedFilterField)}`} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All {formatFieldName(selectedFilterField)}s</SelectItem>
-              {dropdownOptions[selectedFilterField]?.map((option: string) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+              {loadingFilterOptions[selectedFilterField] ? (
+                <SelectItem value="loading" disabled>
+                  Loading options...
                 </SelectItem>
-              ))}
+              ) : (
+                dropdownOptions[selectedFilterField]?.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         ) : (

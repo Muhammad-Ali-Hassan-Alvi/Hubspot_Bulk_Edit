@@ -4,6 +4,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { ReduxProvider } from '@/components/providers/ReduxProvider'
+import UserbackProvider from '@/components/providers/UserbackProvider'
+import { ContentTypesProvider } from '@/components/providers/ContentTypesProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,8 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ReduxProvider>
-          <Toaster />
-          {children}
+          <UserbackProvider>
+            <ContentTypesProvider>
+              <Toaster />
+              {children}
+            </ContentTypesProvider>
+          </UserbackProvider>
         </ReduxProvider>
       </body>
     </html>

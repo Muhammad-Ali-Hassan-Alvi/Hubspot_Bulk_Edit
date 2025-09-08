@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import Link from 'next/link'
+// import Link from 'next/link'
 import { ActivityTypes, logActivity } from '@/lib/audit-logger'
 
 interface HubSpotConnectProps {
@@ -66,7 +66,7 @@ export default function HubSpotConnect({
     setIsConnected(isAnyTokenPresent)
     setConnectionType(userSettings?.hubspot_connection_type || null)
     setDomain(userSettings?.website_domain || '')
-    
+
     // Clear local state if no connection
     if (!isAnyTokenPresent) {
       setToken('')
@@ -291,9 +291,7 @@ export default function HubSpotConnect({
             {!isConnected ? (
               'Connect your HubSpot account using a Private App Token (recommended) or OAuth.'
             ) : (
-              <>
-                Ready to manage and sync your HubSpot content for bulk editin and more.
-              </>
+              <>Ready to manage and sync your HubSpot content for bulk editin and more.</>
             )}
           </CardDescription>
         </CardHeader>

@@ -1,7 +1,40 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { CONTENT_TYPE_MAPPING } from '@/lib/constants'
 import { isHeaderReadOnly, getHeaderInfo } from '@/lib/utils'
 import { getCombinedInAppEditFields } from '@/lib/utils'
+
+// Cache for content types
+const contentTypesCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
+
+async function fetchContentTypes(): Promise<any[]> {
+  try {
+    const cacheKey = 'content-types-global'
+    const cached = contentTypesCache.get(cacheKey)
+    const now = Date.now()
+
+    if (cached && now - cached.timestamp < CACHE_DURATION) {
+      return cached.data
+    }
+
+    // Fetch from our content types API
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const response = await fetch(`${baseUrl}/api/content-types`)
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success) {
+        contentTypesCache.set(cacheKey, { data: data.contentTypes, timestamp: now })
+        return data.contentTypes
+      }
+    }
+
+    // No fallback - let the error propagate
+    throw new Error('Failed to fetch content types from API')
+  } catch (error) {
+    console.error('Error fetching content types:', error)
+    throw error
+  }
+}
 
 const ENDPOINT_MAP = {
   'landing-pages': {
@@ -61,10 +94,7 @@ const normalizeItem = (item: any, endpointType: string) => {
   const headerInfo: { [key: string]: any } = {}
 
   // Get the HubSpot content type for this endpoint
-  const hubSpotContentType =
-    CONTENT_TYPE_MAPPING[
-      endpointType.toLowerCase().replace(' ', '-') as keyof typeof CONTENT_TYPE_MAPPING
-    ] || endpointType
+  const hubSpotContentType = endpointType
 
   // Get combined in-app edit fields for this content type
   const combinedInAppEditFields = getCombinedInAppEditFields(hubSpotContentType)
@@ -174,16 +204,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (contentType === 'all-pages') {
-      const typesToAggregate = [
-        'landing-pages',
-        'site-pages',
-        'blog-posts',
-        'blogs',
-        'tags',
-        'authors',
-        'url-redirects',
-        'hubdb-tables',
-      ]
+      // Fetch dynamic content types
+      const contentTypes = await fetchContentTypes()
+      const typesToAggregate = contentTypes.map(type => type.value)
       const fetchPromises = typesToAggregate.map(type => {
         const endpoint = ENDPOINT_MAP[type as keyof typeof ENDPOINT_MAP]
         return fetchAllFromEndpoint(endpoint.url, headers, endpoint.key).then(items => {

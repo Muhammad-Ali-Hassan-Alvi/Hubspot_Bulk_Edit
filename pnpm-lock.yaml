@@ -107,6 +107,9 @@ dependencies:
   '@supabase/supabase-js':
     specifier: ^2.50.4
     version: 2.54.0
+  '@userback/widget':
+    specifier: 0.3.11
+    version: 0.3.11
   autoprefixer:
     specifier: ^10.4.20
     version: 10.4.21(postcss@8.5.6)
@@ -4525,6 +4528,13 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
+
+  /@userback/widget@0.3.11:
+    resolution:
+      {
+        integrity: sha512-gVOob+0EFzgpG3pqj9yBmvONo6xjwRhkWyFjDLD8U6YQmbnMpXvHIsvLLReaXfMeVWSWApCVt79jIXmpgoM2CQ==,
+      }
+    dev: false
 
   /@webassemblyjs/ast@1.14.1:
     resolution:

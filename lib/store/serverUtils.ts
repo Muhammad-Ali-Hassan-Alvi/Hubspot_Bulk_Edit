@@ -46,7 +46,7 @@ export async function getAuthenticatedUser() {
   try {
     console.log('🔐 getAuthenticatedUser: Creating Supabase client...')
     const supabase = createClient()
-    
+
     console.log('🔐 getAuthenticatedUser: Attempting to get user...')
     const {
       data: { user },
@@ -57,7 +57,7 @@ export async function getAuthenticatedUser() {
       hasUser: !!user,
       hasError: !!authError,
       errorMessage: authError?.message,
-      userId: user?.id
+      userId: user?.id,
     })
 
     if (authError) {

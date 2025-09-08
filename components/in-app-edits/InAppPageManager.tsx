@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast'
 import { RefreshCw, FileText } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import 'react-datepicker/dist/react-datepicker.css'
-import { CONTENT_TYPES } from '@/lib/constants'
+import { useContentTypes } from '@/hooks/useContentTypes'
 import DataTable from './DataTable'
 import Filters from '../pages/components/Filters'
 
@@ -62,9 +62,12 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
   const [modifiedRecords, setModifiedRecords] = useState<{ [key: string]: any }>({})
   const pageCache = useRef<{ [key: number]: HubSpotContent[] }>({})
 
+  // Fetch dynamic content types
+  const { contentTypes } = useContentTypes()
+
   const totalPages = Math.ceil(totalItems / itemsPerPage)
   const currentContentTypeLabel =
-    CONTENT_TYPES.find(ct => ct.value === contentType)?.label || 'Content'
+    contentTypes.find(ct => ct.value === contentType)?.label || 'Content'
 
   const hubspotToken = userSettings?.hubspot_token_encrypted
 
@@ -359,7 +362,7 @@ export default function InAppPageManager({ userSettings }: PageManagerProps) {
                 <SelectValue placeholder="Change Type" />
               </SelectTrigger>
               <SelectContent>
-                {CONTENT_TYPES.map(option => (
+                {contentTypes.map(option => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

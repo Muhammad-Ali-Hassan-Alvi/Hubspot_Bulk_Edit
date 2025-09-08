@@ -33,14 +33,14 @@ export default function DashboardOverviewPage() {
       router.push('/auth')
       return
     }
-    
+
     // Don't fetch if we already have userSettings
     if (userSettings) {
       return
     }
-    
+
     setIsLoading(true)
-    
+
     try {
       // Fetch fresh user settings from the API
       const response = await fetch('/api/user/settings')
@@ -68,15 +68,15 @@ export default function DashboardOverviewPage() {
   // Manual refresh function for when we need fresh data
   const refreshUserData = useCallback(async () => {
     if (!user) return
-    
+
     // Prevent multiple simultaneous refresh calls
     if (isRefreshingRef.current) {
       return
     }
-    
+
     isRefreshingRef.current = true
     setIsLoading(true)
-    
+
     try {
       const response = await fetch('/api/user/settings')
       if (response.ok) {
@@ -95,8 +95,6 @@ export default function DashboardOverviewPage() {
       setIsLoading(false)
     }
   }, [user, updateSettings])
-
-
 
   useEffect(() => {
     fetchUserData()
@@ -149,13 +147,13 @@ export default function DashboardOverviewPage() {
         setSuccessMessage('Google Sheets has been connected successfully! 📊')
         setGoogleModalOpen(false)
       }
-      
+
       // Show loading state while refreshing data
       setIsLoading(true)
-      
+
       // Force refresh user data to update connection status
       await refreshUserData()
-      
+
       // Loading state will be cleared by refreshUserData
     }
   }
@@ -163,7 +161,7 @@ export default function DashboardOverviewPage() {
   const handleDisconnect = async (service: 'hubspot' | 'google') => {
     setIsDisconnecting(service)
     setIsLoading(true)
-    
+
     if (!user) {
       toast({
         title: 'Error',
@@ -218,8 +216,6 @@ export default function DashboardOverviewPage() {
     }
   }
 
-
-
   // Show loading only if user is not available or data is loading
   if (!user || isLoading) {
     return (
@@ -245,16 +241,15 @@ export default function DashboardOverviewPage() {
   }
 
   // For new users, userSettings might be null - that's okay, show the connection options
-  const isHubSpotConnected = userSettings ? (
-    !!userSettings.hubspot_token_encrypted || 
-    !!userSettings.hubspot_access_token || 
-    !!userSettings.hubspot_connection_type
-  ) : false
-  
-  const isGoogleConnected = userSettings ? (
-    !!userSettings.google_refresh_token || 
-    !!userSettings.google_access_token
-  ) : false
+  const isHubSpotConnected = userSettings
+    ? !!userSettings.hubspot_token_encrypted ||
+      !!userSettings.hubspot_access_token ||
+      !!userSettings.hubspot_connection_type
+    : false
+
+  const isGoogleConnected = userSettings
+    ? !!userSettings.google_refresh_token || !!userSettings.google_access_token
+    : false
 
   return (
     <div className="w-full space-y-6">
@@ -265,7 +260,7 @@ export default function DashboardOverviewPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Your Hubspot Management Partner</p>
       </div>
-      
+
       {/* Show loading overlay when refreshing data */}
       {isRefreshingRef.current && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -275,7 +270,7 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
           <HubSpot

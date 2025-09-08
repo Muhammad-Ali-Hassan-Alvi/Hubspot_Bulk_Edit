@@ -5,10 +5,10 @@ import { getServerUserSettings, getAuthenticatedUser } from '@/lib/store/serverU
 export async function POST(request: NextRequest) {
   try {
     console.log('🔐 Settings API: Starting authentication check...')
-    
+
     const user = await getAuthenticatedUser()
     console.log('✅ Settings API: User authenticated successfully:', user.id)
-    
+
     const supabase = createClient()
 
     const body = await request.json()
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('❌ Settings API: Authentication or other error:', error)
-    
+
     // Check if it's an authentication error specifically
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
-    
+
     return NextResponse.json(
       {
         success: false,

@@ -75,53 +75,83 @@ export default function BulkEditHeader({
   const fieldsToUse = useMemo(() => {
     return _contentType ? getHubSpotInAppEditFieldsAsObjects(_contentType) : EDITABLE_FIELDS
   }, [_contentType])
-  // NEW & IMPROVED CODE - Fetch fresh dropdown options from HubSpot
-  const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>({})
-  const [loadingDropdownOptions, setLoadingDropdownOptions] = useState(false)
+  // Lazy loading dropdown options - only fetch when needed
+  const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>(
+    {}
+  )
+  const [loadingDropdownOptions, setLoadingDropdownOptions] = useState<{ [key: string]: boolean }>(
+    {}
+  )
+  const [loadedFields, setLoadedFields] = useState<Set<string>>(new Set())
 
-  // Fetch fresh dropdown options from HubSpot
-  const fetchHubspotDropdownOptions = useCallback(async () => {
-    if (!userSettings?.hubspot_token_encrypted) return
-
-    setLoadingDropdownOptions(true)
-    try {
-      const response = await fetch('/api/hubspot/dropdown-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hubspotToken: userSettings.hubspot_token_encrypted,
-          contentType: _contentType || 'all-pages'
-        })
-      })
-
-      const data = await response.json()
-      if (data.success) {
-        setHubspotDropdownOptions(data.dropdownOptions)
-        toast({
-          title: 'Dropdown Options Updated',
-          description: `Refreshed ${Object.keys(data.dropdownOptions).length} fields with real data from your HubSpot account`,
-        })
+  // Fetch specific dropdown options for a field
+  const fetchFieldDropdownOptions = useCallback(
+    async (fieldKey: string) => {
+      if (!userSettings?.hubspot_token_encrypted || loadedFields.has(fieldKey)) {
+        return
       }
-    } catch (error) {
-      console.error('Failed to fetch HubSpot dropdown options:', error)
-      toast({
-        title: 'Failed to Refresh Options',
-        description: 'Could not fetch fresh dropdown options from HubSpot. Using existing options.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingDropdownOptions(false)
-    }
-  }, [userSettings?.hubspot_token_encrypted, _contentType])
 
-  // Fetch dropdown options when component mounts or content type changes
-  useEffect(() => {
-    fetchHubspotDropdownOptions()
-  }, [fetchHubspotDropdownOptions])
+      setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: true }))
+      try {
+        const response = await fetch('/api/hubspot/dropdown-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hubspotToken: userSettings.hubspot_token_encrypted,
+            contentType: _contentType || 'all-pages',
+            specificField: fieldKey, // Request only specific field
+          }),
+        })
+
+        const data = await response.json()
+        if (data.success && data.dropdownOptions[fieldKey]) {
+          setHubspotDropdownOptions(prev => ({
+            ...prev,
+            [fieldKey]: data.dropdownOptions[fieldKey],
+          }))
+          setLoadedFields(prev => new Set([...prev, fieldKey]))
+        }
+      } catch (error) {
+        console.error(`Failed to fetch dropdown options for ${fieldKey}:`, error)
+      } finally {
+        setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: false }))
+      }
+    },
+    [userSettings?.hubspot_token_encrypted, _contentType, loadedFields]
+  )
+
+  // No pre-loading - everything is lazy loaded when clicked
 
   const fieldOptions = useMemo(() => {
     // Combine HubSpot options with local content options for better coverage
     const combinedOptions = { ...hubspotDropdownOptions }
+
+    // Add default options for certain fields
+    if (!combinedOptions.state) {
+      combinedOptions.state = ['DRAFT', 'PUBLISHED', 'SCHEDULED', 'ARCHIVED']
+    }
+    if (!combinedOptions.redirectStyle) {
+      combinedOptions.redirectStyle = ['301', '302', '307', '308']
+    }
+    if (!combinedOptions.precedence) {
+      combinedOptions.precedence = ['1', '2', '3', '4', '5', '10', '20', '50', '100']
+    }
+    if (!combinedOptions.language) {
+      combinedOptions.language = [
+        'English - en',
+        'Spanish - es',
+        'French - fr',
+        'German - de',
+        'Italian - it',
+        'Portuguese - pt',
+        'Japanese - ja',
+        'Chinese - zh',
+        'Korean - ko',
+        'Arabic - ar',
+        'Hindi - hi',
+        'Russian - ru',
+      ]
+    }
 
     if (allContent && Array.isArray(allContent)) {
       const fieldsForDropdown = [
@@ -135,11 +165,14 @@ export default function BulkEditHeader({
         'name',
         'authorName',
         'tagIds',
+        'blogAuthorId',
+        'redirectStyle',
+        'precedence',
       ]
 
       fieldsForDropdown.forEach(fieldKey => {
         const values = new Set<string>()
-        
+
         // Add existing HubSpot options
         if (combinedOptions[fieldKey]) {
           combinedOptions[fieldKey].forEach(option => values.add(option))
@@ -252,31 +285,59 @@ export default function BulkEditHeader({
 
   const renderField = (field: EditableField) => {
     const dynamicOptions = fieldOptions[field.key]
-    const hasHubspotOptions = hubspotDropdownOptions[field.key] && hubspotDropdownOptions[field.key].length > 0
+    const hasHubspotOptions =
+      hubspotDropdownOptions[field.key] && hubspotDropdownOptions[field.key].length > 0
+    const isLoading = loadingDropdownOptions[field.key]
 
-    if (dynamicOptions && dynamicOptions.length > 0) {
+    // Fields that should always be dropdowns
+    const alwaysDropdownFields = [
+      'language',
+      'domain',
+      'tagIds',
+      'precedence',
+      'redirectStyle',
+      'campaign',
+      'authorName',
+      'blogAuthorId',
+      'contentGroupId',
+      'state',
+    ]
+
+    // Show dropdown if we have options OR if it's a field that should always be a dropdown
+    if ((dynamicOptions && dynamicOptions.length > 0) || alwaysDropdownFields.includes(field.key)) {
       return (
         <div className="space-y-1">
           <Select
             value={updates[field.key] ? String(updates[field.key]) : ''}
             onValueChange={value => handleValueChange(field.key, value)}
+            onOpenChange={open => {
+              // Fetch options when dropdown opens if not already loaded
+              if (open && !loadedFields.has(field.key)) {
+                fetchFieldDropdownOptions(field.key)
+              }
+            }}
           >
             <SelectTrigger className="bg-background">
               <SelectValue placeholder={field.label} />
             </SelectTrigger>
             <SelectContent>
-              {dynamicOptions.map(option => (
-                <SelectItem key={option} value={option}>
-                  {option}
+              {isLoading ? (
+                <SelectItem value="loading" disabled>
+                  Loading options...
                 </SelectItem>
-              ))}
+              ) : dynamicOptions && dynamicOptions.length > 0 ? (
+                dynamicOptions.map(option => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="no-options" disabled>
+                  Click to load options...
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
-          {hasHubspotOptions && (
-            <p className="text-xs text-muted-foreground">
-              {dynamicOptions.length} options from HubSpot
-            </p>
-          )}
         </div>
       )
     }
@@ -358,6 +419,44 @@ export default function BulkEditHeader({
           </div>
         )
       case 'array':
+        // Check if this array field should be a dropdown
+        if (alwaysDropdownFields.includes(field.key)) {
+          return (
+            <div className="space-y-1">
+              <Select
+                value={updates[field.key] ? String(updates[field.key]) : ''}
+                onValueChange={value => handleValueChange(field.key, value)}
+                onOpenChange={open => {
+                  if (open && !loadedFields.has(field.key)) {
+                    fetchFieldDropdownOptions(field.key)
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder={field.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading options...
+                    </SelectItem>
+                  ) : dynamicOptions && dynamicOptions.length > 0 ? (
+                    dynamicOptions.map(option => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-options" disabled>
+                      Click to load options...
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        }
+        // Default array input for non-dropdown array fields
         return (
           <Input
             className="bg-background"
@@ -414,7 +513,7 @@ export default function BulkEditHeader({
               </CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
+              {/* <Button 
                 onClick={fetchHubspotDropdownOptions} 
                 size="sm" 
                 variant="outline"
@@ -423,7 +522,7 @@ export default function BulkEditHeader({
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loadingDropdownOptions ? 'animate-spin' : ''}`} />
                 Refresh Options
-              </Button>
+              </Button> */}
               <Button onClick={handleConfirm} size="sm" disabled={isPublishing}>
                 Upload Changes to HubSpot
               </Button>
@@ -438,13 +537,13 @@ export default function BulkEditHeader({
             </div>
           </div>
 
-          {loadingDropdownOptions && (
+          {/* {loadingDropdownOptions && (
             <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               Loading dropdown options from HubSpot...
             </div>
           )}
-          
+           */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
             {fieldsToUse.map(field => (
               <div key={field.key} className="space-y-1.5">

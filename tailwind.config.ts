@@ -104,6 +104,14 @@ const config: Config = {
       '2xl': ['22px', { lineHeight: '34px' }],
       '3xl': ['20px', { lineHeight: '30px' }],
     },
+    // fontSize: {
+    //   sm: ['14px', { lineHeight: '20px' }],
+    //   base: ['16px', { lineHeight: '24px' }],
+    //   lg: ['11px', { lineHeight: '17px' }],
+    //   xl: ['12px', { lineHeight: '21px' }],
+    //   '2xl': ['14px', { lineHeight: '21px' }],
+    //   '3xl': ['20px', { lineHeight: '28px' }],
+    // },
   },
   plugins: [require('tailwindcss-animate')],
 }

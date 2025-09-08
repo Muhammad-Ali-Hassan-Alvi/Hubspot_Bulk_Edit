@@ -1,0 +1,93 @@
+import { type NextRequest, NextResponse } from 'next/server'
+import { google } from 'googleapis'
+import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { sheetId: string } }
+) {
+  try {
+    const { tabName } = await request.json()
+    const { sheetId } = params
+
+    if (!sheetId || !tabName) {
+      return NextResponse.json(
+        { success: false, error: 'Missing sheet ID or tab name' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createClient()
+    const user = await getAuthenticatedUser()
+
+    const { data: userSettings } = await supabase
+      .from('user_settings')
+      .select('google_access_token')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!userSettings?.google_access_token) {
+      return NextResponse.json(
+        { success: false, error: 'Google Sheets not connected' },
+        { status: 400 }
+      )
+    }
+
+    const auth = new google.auth.OAuth2()
+    auth.setCredentials({ access_token: userSettings.google_access_token })
+
+    const sheets = google.sheets({ version: 'v4', auth })
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${tabName}!A:Z`
+    })
+
+    const rows = response.data.values || []
+    
+    if (rows.length === 0) {
+      return NextResponse.json({
+        success: true,
+        rows: []
+      })
+    }
+
+    const headers = rows[0]
+    const dataRows = rows.slice(1)
+
+    const processedData = dataRows.map((row, index) => {
+      const item: any = { id: `gsheet_${index}` }
+      headers.forEach((header, i) => {
+        item[header] = row[i] || ''
+      })
+      return item
+    })
+
+    await supabase.from('audit_logs').insert({
+      user_id: user.id,
+      action_type: 'import_gsheet_data',
+      resource_type: 'google_sheet',
+      resource_id: sheetId,
+      details: {
+        sheet_id: sheetId,
+        tab_name: tabName,
+        rows_imported: processedData.length
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      rows: processedData,
+      headers: headers
+    })
+
+  } catch (error) {
+    console.error('Error fetching sheet data:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch sheet data' },
+      { status: 500 }
+    )
+  }
+}
+

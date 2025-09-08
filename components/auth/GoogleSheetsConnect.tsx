@@ -29,13 +29,19 @@ export default function GoogleSheetsConnect({
 
   // Ensure connection status and selectedSheetId are always in sync with userSettings
   useEffect(() => {
-    const hasGoogleToken = !!userSettings?.google_access_token || !!userSettings?.google_refresh_token
+    const hasGoogleToken =
+      !!userSettings?.google_access_token || !!userSettings?.google_refresh_token
     setIsConnected(hasGoogleToken)
-    
+
     if (userSettings?.selected_sheet_id !== selectedSheetId) {
       setSelectedSheetId(userSettings?.selected_sheet_id || '')
     }
-  }, [userSettings?.google_access_token, userSettings?.google_refresh_token, userSettings?.selected_sheet_id, selectedSheetId])
+  }, [
+    userSettings?.google_access_token,
+    userSettings?.google_refresh_token,
+    userSettings?.selected_sheet_id,
+    selectedSheetId,
+  ])
 
   const connectGoogleSheets = async () => {
     setLoading(true)
