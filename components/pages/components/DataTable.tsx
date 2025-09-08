@@ -50,9 +50,16 @@ interface DataTableProps {
   exportModalContent?: React.ReactNode
   setItemsPerPage?: (itemsPerPage: number) => void
   showPagination?: boolean
+  customColumnHeaders?: { [key: string]: string }
 }
 
-const formatColumnLabel = (key: string) => {
+const formatColumnLabel = (key: string, customHeaders?: { [key: string]: string }) => {
+  // Use custom header if provided
+  if (customHeaders && customHeaders[key]) {
+    return customHeaders[key]
+  }
+  
+  // Default formatting
   const result = key.replace(/([A-Z])/g, ' $1')
   return result.charAt(0).toUpperCase() + result.slice(1)
 }
@@ -117,6 +124,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
       editableTextFields = new Set(),
       onColumnReorder,
       showPagination = false,
+      customColumnHeaders = {},
     },
     ref
   ) => {
@@ -413,9 +421,9 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                               <span
                                 onClick={() => handleSort(key)}
                                 className="flex items-center gap-1 cursor-pointer hover:text-primary truncate"
-                                title={formatColumnLabel(key)}
+                                title={formatColumnLabel(key, customColumnHeaders)}
                               >
-                                {formatColumnLabel(key)}
+                                {formatColumnLabel(key, customColumnHeaders)}
                                 {sortConfig.key === key ? (
                                   sortConfig.direction === 'asc' ? (
                                     <ChevronUp className="h-3 w-3" />

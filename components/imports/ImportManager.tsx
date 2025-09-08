@@ -446,32 +446,45 @@ export default function ImportManager({
     return String(value || '')
   }
 
+
+  // Get unique field names from changes
+  const uniqueFields = new Set(
+    groupedChangesArray.flatMap((pageChange: any) =>
+      pageChange.changes.map((change: any) => change.field)
+    )
+  )
+
   const transformedChangesForTable = groupedChangesArray.map((pageChange: any) => {
     const changeSummary = pageChange.changes.reduce((acc: any, change: any) => {
-      acc[change.field] =
-        `${renderChangeValue(change.oldValue)} → ${renderChangeValue(change.newValue)}`
+      // Create separate columns for previous and new values
+      acc[`${change.field}_previous`] = renderChangeValue(change.oldValue)
+      acc[`${change.field}_new`] = renderChangeValue(change.newValue)
       return acc
     }, {})
 
     return {
       id: pageChange.pageId,
-      name: pageChange.pageName,
+      pageName: pageChange.pageName,
       pageId: pageChange.pageId,
       changesCount: pageChange.changes.length,
       ...changeSummary,
     }
   })
 
+  // Create display columns with previous and new value columns for each field
   const displayColumns = [
-    'name',
-    'pageId',
+    'pageName',
+    'pageId', 
     'changesCount',
-    ...new Set(
-      groupedChangesArray.flatMap((pageChange: any) =>
-        pageChange.changes.map((change: any) => change.field)
-      )
-    ),
+    ...Array.from(uniqueFields).flatMap(field => [`${field}_previous`, `${field}_new`])
   ]
+
+  // Create custom column headers for the DataTable
+  const customColumnHeaders = Array.from(uniqueFields).reduce((acc, field) => {
+    acc[`${field}_previous`] = 'Old Value'
+    acc[`${field}_new`] = 'New Value'
+    return acc
+  }, {} as { [key: string]: string })
 
   return (
     <Card className="w-full">
@@ -709,6 +722,7 @@ export default function ImportManager({
                           itemsPerPage={transformedChangesForTable.length}
                           loading={false}
                           currentContentTypeLabel="Changed Pages"
+                          customColumnHeaders={customColumnHeaders}
                           onSelectAll={checked => {
                             if (checked) {
                               setSelectedChangedRows(
