@@ -185,6 +185,20 @@ export async function POST(request: NextRequest) {
             new: sheetValue,
           }
         }
+
+        // Debug logging for Current State field
+        if (header === 'Current State') {
+          console.log(`DEBUG Current State for page ${pageId}:`, {
+            header,
+            dbColumn,
+            sheetValue,
+            snapshotValue,
+            normalizedSnapshotValue,
+            oldStr,
+            newStr,
+            isDifferent: oldStr !== newStr
+          })
+        }
       }
 
       if (isModified) {

@@ -45,14 +45,14 @@ export async function POST(request: NextRequest) {
     // --- Step 2: Define mapping for ONLY the fields we want to compare ---
     // Only compare the most essential content fields that users actually edit
     const fieldsToCompare: { [key: string]: string } = {
-      'Name': 'name',
+      Name: 'name',
       'Html Title': 'html_title',
       'Meta Description': 'meta_description',
-      'Slug': 'slug',
-      'State': 'state',
+      Slug: 'slug',
+      State: 'state',
       'Current State': 'current_state',
       'Content Type': 'content_type',
-      'Published': 'published',
+      Published: 'published',
     }
 
     const changes = []
@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
 
       const snapshotPage = snapshotMap.get(String(pageId))
       if (!snapshotPage) continue
-
 
       const modifiedFields: { [key: string]: any } = {}
       let isModified = false
@@ -125,6 +124,20 @@ export async function POST(request: NextRequest) {
             old: snapshotValue, // Send back the raw original value
             new: sheetValue, // Send back the raw new value
           }
+        }
+
+        // Debug logging for Current State field
+        if (header === 'Current State') {
+          console.log(`DEBUG Current State for page ${pageId}:`, {
+            header,
+            dbColumn,
+            sheetValue,
+            snapshotValue,
+            normalizedSnapshotValue,
+            oldStr,
+            newStr,
+            isDifferent: oldStr !== newStr,
+          })
         }
       }
 

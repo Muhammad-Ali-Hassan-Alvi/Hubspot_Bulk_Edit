@@ -1,11 +1,10 @@
-// File: /api/google/sheets/export/route.ts
+// FILE: /api/google/sheets/export/route.ts
 
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { getServerUserSettings } from '@/lib/store/serverUtils'
-import { snapshot } from 'node:test'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +13,8 @@ export async function POST(request: Request) {
     label: string
     key: string
   }
-  const supabase = createClient()
 
+  const supabase = createClient()
   const user = await getAuthenticatedUser()
 
   try {
@@ -37,6 +36,7 @@ export async function POST(request: Request) {
       )
     }
 
+    // --- Token refresh logic (unchanged) ---
     let accessToken = userSettings.google_access_token
     const refreshToken = userSettings.google_refresh_token
     const expiresAt = userSettings.google_token_expires_at
@@ -44,7 +44,6 @@ export async function POST(request: Request) {
       : null
 
     const now = new Date()
-
     const url = new URL(request.url)
     const origin = url.origin
     const redirectUri = `${origin}/api/google/callback`
@@ -82,29 +81,94 @@ export async function POST(request: Request) {
 
     const timestamp = new Date().toISOString()
 
+    // ---------------- Helper utilities for robust field extraction ----------------
+    const toCamel = (label: string) =>
+      label
+        .split(/[\s_]+/)
+        .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+        .join('')
+
+    const toSnake = (s: string) =>
+      s
+        .replace(/\s+/g, '_')
+        .replace(/([A-Z])/g, '_$1')
+        .replace(/__+/g, '_')
+        .toLowerCase()
+        .replace(/^_/, '')
+
+    function tryParseJSON(value: any) {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          return JSON.parse(trimmed)
+        } catch {
+          return value
+        }
+      }
+      return value
+    }
+
+    function normalizeCellValue(v: any) {
+      // Normalize empty/EMPTY -> null, trim strings, hydrate booleans and JSON-ish strings
+      if (v === undefined) return null
+      if (v === null) return null
+      if (typeof v === 'string') {
+        const t = v.trim()
+        if (t === '' || t.toUpperCase() === 'EMPTY') return null
+        if (t.toUpperCase() === 'TRUE') return true
+        if (t.toUpperCase() === 'FALSE') return false
+        const parsed = tryParseJSON(t)
+        return parsed
+      }
+      return v
+    }
+
+    function getFieldValue(page: any, label: string, key: string) {
+      if (!page) return null
+      const candidates = [
+        key,
+        label,
+        label.trim(),
+        label.trim().toLowerCase(),
+        label.trim().replace(/\s+/g, ''),
+        toCamel(label),
+        toSnake(label),
+      ]
+
+      for (const c of candidates) {
+        if (c && Object.prototype.hasOwnProperty.call(page, c) && page[c] !== undefined) {
+          return normalizeCellValue(page[c])
+        }
+      }
+
+      // Some common fallback keys
+      if (page.id !== undefined) return normalizeCellValue(page.id)
+      if (page.name !== undefined) return normalizeCellValue(page.name)
+
+      return null
+    }
+    // -------------------------------------------------------------------------------
+
+    // Build column keys (from labels)
     const columnsWithKeys: ColumnDefinition[] = columns.map((label: string) => {
-      // A simple way to create a JS-friendly key from a label
-      // "First Name" -> "firstName"
       const key = label
         .split(' ')
         .map((word, index) =>
-          index === 0
-            ? word.toLowerCase()
-            : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         )
         .join('')
 
       return { label, key }
     })
 
-    // Now TypeScript knows exactly what `columnsWithKeys` is, and the following lines will work without errors.
     const headers = ['Export Date', ...columnsWithKeys.map(c => c.label)]
 
+    // Build rows to write to the sheet, using getFieldValue
     const rows = data.map((row: any) => [
       timestamp,
-      ...columnsWithKeys.map(({ key }) => {
-        const value = row[key]
-        // This safely handles values that are objects, null, or undefined.
+      ...columnsWithKeys.map(({ label, key }) => {
+        const value = getFieldValue(row, label, key)
         return typeof value === 'object' && value !== null ? JSON.stringify(value) : (value ?? '')
       }),
     ])
@@ -183,46 +247,46 @@ export async function POST(request: Request) {
         ],
       },
     })
-    // const { error: snapshotError } = await supabase.from('export_snapshots').upsert(
-    //   {
-    //     user_id: user.id,
-    //     sheet_id: sheetId,
-    //     sheet_tab_name: tabName,
-    //     snapshot_data: data,
-    //   },
-    //   { onConflict: 'user_id,sheet_id,sheet_tab_name' }
-    // )
 
+    // ------- Build snapshot rows using getFieldValue (robust) -------
     if (data && data.length > 0) {
-      const snapshotRows = data.map((page: any) => ({
-        user_id: user.id,
-        sheet_id: sheetId,
-        sheet_tab_name: tabName,
+      const snapshotRows = data.map((page: any) => {
+        const safe = (label: string, key: string) => {
+          const v = getFieldValue(page, label, key)
+          // Keep nulls consistent
+          return v === undefined ? null : v
+        }
 
-        // Map from camelCase data to snake_case DB columns
-        hubspot_page_id: page.id,
-        url: page.url,
-        name: page.name,
-        slug: page.slug,
-        state: page.state,
-        html_title: page.htmlTitle,
-        meta_description: page.metaDescription,
-        published: page.published,
-        archived_at: page.archivedAt,
-        author_name: page.authorName,
-        category_id: page.categoryId,
-        content_type: page.contentType,
-        created_by_id: page.createdById,
-        publish_date: page.publishDate,
-        updated_at: page.updatedAt,
-        updated_by_id: page.updatedById,
-        current_state: page.currentState,
-        widgets: page.widgets,
-        layout_sections: page.layoutSections,
-        translations: page.translations,
-        public_access_rules: page.publicAccessRules,
-        // Add any other fields you want to save...
-      }))
+        return {
+          user_id: user.id,
+          sheet_id: sheetId,
+          sheet_tab_name: tabName,
+
+          // Map from label -> snapshot column using safe extractor
+          hubspot_page_id: safe('Id', 'id'),
+          url: safe('Url', 'url'),
+          name: safe('Name', 'name'),
+          slug: safe('Slug', 'slug'),
+          state: safe('State', 'state'),
+          html_title: safe('Html Title', 'htmlTitle'),
+          meta_description: safe('Meta Description', 'metaDescription'),
+          published: safe('Published', 'published'),
+          archived_at: safe('Archived At', 'archivedAt'),
+          author_name: safe('Author Name', 'authorName'),
+          category_id: safe('Category Id', 'categoryId'),
+          content_type: safe('Content Type', 'contentType'),
+          created_by_id: safe('Created By Id', 'createdById'),
+          publish_date: safe('Publish Date', 'publishDate'),
+          updated_at: safe('Updated At', 'updatedAt'),
+          updated_by_id: safe('Updated By Id', 'updatedById'),
+          current_state: safe('Current State', 'currentState'),
+          widgets: safe('Widgets', 'widgets'),
+          layout_sections: safe('Layout Sections', 'layoutSections'),
+          translations: safe('Translations', 'translations'),
+          public_access_rules: safe('Public Access Rules', 'publicAccessRules'),
+          // Add any other fields you want to save...
+        }
+      })
 
       const { error: snapshotError } = await supabase.from('page_snapshots').upsert(snapshotRows, {
         onConflict: 'user_id,sheet_id,sheet_tab_name,hubspot_page_id',
@@ -233,10 +297,6 @@ export async function POST(request: Request) {
         // Don't fail the export, but log the error.
       }
     }
-
-    // if (snapshotError) {
-    //   console.error('Failed to save export snapshot:', snapshotError)
-    // }
 
     return NextResponse.json({
       success: true,
