@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, contentType, importData, changes } = await request.json()
+    const { userId, contentType, importData, changes, isPollingSync = false } = await request.json()
 
     if (!userId || !importData || !Array.isArray(importData)) {
       return NextResponse.json(
@@ -80,13 +80,15 @@ export async function POST(request: NextRequest) {
 
     await supabase.from('audit_logs').insert({
       user_id: userId,
-      action_type: 'import_sync_to_hubspot',
+      action_type: isPollingSync ? 'polling_sync_to_hubspot' : 'import_sync_to_hubspot',
       resource_type: contentType,
       details: {
         total_items: importData.length,
         synced_count: syncedCount,
         failed_count: failedCount,
-        errors: errors
+        errors: errors,
+        is_polling_sync: isPollingSync,
+        changes_count: changes?.length || 0
       }
     })
 

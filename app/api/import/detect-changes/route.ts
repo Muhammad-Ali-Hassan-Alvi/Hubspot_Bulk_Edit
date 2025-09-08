@@ -1,108 +1,158 @@
+// FILE: /api/import/detect-changes/route.ts (The Definitive Version)
+
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, contentType, importData } = await request.json()
+    const { userId, importData, sheetId, tabName } = await request.json()
 
-    if (!userId || !importData || !Array.isArray(importData)) {
+    if (!userId || !importData || !Array.isArray(importData) || !sheetId || !tabName) {
       return NextResponse.json(
-        { success: false, error: 'Missing required data' },
+        { success: false, error: 'Missing required fields.' },
         { status: 400 }
       )
     }
 
     const supabase = createClient()
     const user = await getAuthenticatedUser()
-    
     if (user.id !== userId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
+    // --- Step 1: Fetch the structured snapshot data for this specific sheet/tab ---
+    const { data: snapshotData, error: snapshotError } = await supabase
+      .from('page_snapshots')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('sheet_id', sheetId)
+      .eq('sheet_tab_name', tabName)
+
+    if (snapshotError || !snapshotData || snapshotData.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'No export snapshot found to compare against. Please re-export the data to this tab first.',
+        },
+        { status: 404 }
+      )
+    }
+
+    const snapshotMap = new Map(snapshotData.map(item => [String(item.hubspot_page_id), item]))
+
+    // --- Step 2: Define mapping for ONLY the fields we want to compare ---
+    // Only compare the most essential content fields that users actually edit
+    const fieldsToCompare: { [key: string]: string } = {
+      'Name': 'name',
+      'Html Title': 'html_title',
+      'Meta Description': 'meta_description',
+      'Slug': 'slug',
+      'State': 'state',
+      'Current State': 'current_state',
+      'Content Type': 'content_type',
+      'Published': 'published',
+    }
+
     const changes = []
-    
-    for (const importItem of importData) {
-      if (!importItem.id) continue
 
-      try {
-        const { data: existingItem } = await supabase
-          .from('hubspot_pages')
-          .select('*')
-          .eq('id', importItem.id)
-          .eq('user_id', userId)
-          .single()
+    for (const sheetRow of importData) {
+      const pageId = sheetRow['Id'] // Use bracket notation for safety with spaces
+      if (!pageId) continue
 
-        if (existingItem) {
-          const itemChanges = []
-          
-          Object.keys(importItem).forEach(key => {
-            if (key === 'id') return
-            
-            const existingValue = existingItem[key]
-            const newValue = importItem[key]
-            
-            if (existingValue !== newValue && newValue !== '' && newValue != null) {
-              itemChanges.push({
-                field: key,
-                oldValue: existingValue || '',
-                newValue: newValue || '',
-                pageId: importItem.id
-              })
-            }
-          })
+      const snapshotPage = snapshotMap.get(String(pageId))
+      if (!snapshotPage) continue
 
-          if (itemChanges.length > 0) {
-            changes.push({
-              pageId: importItem.id,
-              pageName: importItem.name || importItem.id,
-              changes: itemChanges
-            })
-          }
-        } else {
-          changes.push({
-            pageId: importItem.id,
-            pageName: importItem.name || importItem.id,
-            changes: [{
-              field: 'status',
-              oldValue: '',
-              newValue: 'NEW_ITEM',
-              pageId: importItem.id
-            }]
-          })
+
+      const modifiedFields: { [key: string]: any } = {}
+      let isModified = false
+
+      // Iterate over ONLY the fields we want to compare
+      for (const header in fieldsToCompare) {
+        const dbColumn = fieldsToCompare[header]
+
+        let sheetValue = sheetRow[header]
+        const snapshotValue = (snapshotPage as any)[dbColumn]
+
+        // Skip comparison if the field doesn't exist in the sheet data
+        if (sheetValue === undefined) {
+          continue
         }
-      } catch (error) {
-        console.error(`Error processing item ${importItem.id}:`, error)
+
+        // --- Start of Hydration & Normalization ---
+        // Treat empty sheet cells as null to match the database
+        if (sheetValue === '' || sheetValue === undefined) {
+          sheetValue = null
+        }
+
+        // Special handling for "EMPTY" values in database
+        let normalizedSnapshotValue = snapshotValue
+        if (snapshotValue === 'EMPTY' || snapshotValue === '') {
+          normalizedSnapshotValue = null
+        }
+
+        // Hydrate string booleans to real booleans
+        if (sheetValue === 'TRUE') sheetValue = true
+        else if (sheetValue === 'FALSE') sheetValue = false
+        // Hydrate JSON strings to objects/arrays
+        else if (
+          typeof sheetValue === 'string' &&
+          (sheetValue.startsWith('{') || sheetValue.startsWith('['))
+        ) {
+          try {
+            sheetValue = JSON.parse(sheetValue)
+          } catch (e) {
+            // If parsing fails, keep the original string value
+            console.warn(`Failed to parse JSON for field ${header}:`, e)
+          }
+        }
+        // --- End of Hydration & Normalization ---
+
+        // Final Comparison: Convert both to strings for a foolproof check
+        const oldStr =
+          normalizedSnapshotValue !== null && typeof normalizedSnapshotValue === 'object'
+            ? JSON.stringify(normalizedSnapshotValue)
+            : String(normalizedSnapshotValue ?? '')
+        const newStr =
+          sheetValue !== null && typeof sheetValue === 'object'
+            ? JSON.stringify(sheetValue)
+            : String(sheetValue ?? '')
+
+        if (oldStr !== newStr) {
+          isModified = true
+          modifiedFields[dbColumn] = {
+            old: snapshotValue, // Send back the raw original value
+            new: sheetValue, // Send back the raw new value
+          }
+        }
+      }
+
+      if (isModified) {
+        changes.push({
+          pageId: pageId,
+          name: sheetRow['Name'] || snapshotPage.name,
+          type: 'modified',
+          fields: modifiedFields,
+        })
       }
     }
 
-    await supabase.from('audit_logs').insert({
-      user_id: userId,
-      action_type: 'import_changes_detected',
-      resource_type: contentType,
-      details: {
-        total_items: importData.length,
-        items_with_changes: changes.length,
-        changes_detected: changes.reduce((acc, item) => acc + item.changes.length, 0)
-      }
-    })
-
     return NextResponse.json({
       success: true,
-      changes: changes.flatMap(item => item.changes),
+      changes,
       summary: {
         totalItems: importData.length,
         itemsWithChanges: changes.length,
-        totalChanges: changes.reduce((acc, item) => acc + item.changes.length, 0)
-      }
+        totalChanges: changes.reduce((acc, item) => acc + Object.keys(item.fields).length, 0),
+      },
     })
-
   } catch (error) {
-    console.error('Error detecting changes:', error)
+    console.error('CRITICAL ERROR in detect-changes:', error)
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.'
     return NextResponse.json(
-      { success: false, error: 'Failed to detect changes' },
+      { success: false, error: errorMessage, stack: error instanceof Error ? error.stack : null },
       { status: 500 }
     )
   }
 }
-

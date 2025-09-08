@@ -5,6 +5,7 @@ import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { getServerUserSettings } from '@/lib/store/serverUtils'
+import { snapshot } from 'node:test'
 
 export const dynamic = 'force-dynamic'
 
@@ -182,6 +183,60 @@ export async function POST(request: Request) {
         ],
       },
     })
+    // const { error: snapshotError } = await supabase.from('export_snapshots').upsert(
+    //   {
+    //     user_id: user.id,
+    //     sheet_id: sheetId,
+    //     sheet_tab_name: tabName,
+    //     snapshot_data: data,
+    //   },
+    //   { onConflict: 'user_id,sheet_id,sheet_tab_name' }
+    // )
+
+    if (data && data.length > 0) {
+      const snapshotRows = data.map((page: any) => ({
+        user_id: user.id,
+        sheet_id: sheetId,
+        sheet_tab_name: tabName,
+
+        // Map from camelCase data to snake_case DB columns
+        hubspot_page_id: page.id,
+        url: page.url,
+        name: page.name,
+        slug: page.slug,
+        state: page.state,
+        html_title: page.htmlTitle,
+        meta_description: page.metaDescription,
+        published: page.published,
+        archived_at: page.archivedAt,
+        author_name: page.authorName,
+        category_id: page.categoryId,
+        content_type: page.contentType,
+        created_by_id: page.createdById,
+        publish_date: page.publishDate,
+        updated_at: page.updatedAt,
+        updated_by_id: page.updatedById,
+        current_state: page.currentState,
+        widgets: page.widgets,
+        layout_sections: page.layoutSections,
+        translations: page.translations,
+        public_access_rules: page.publicAccessRules,
+        // Add any other fields you want to save...
+      }))
+
+      const { error: snapshotError } = await supabase.from('page_snapshots').upsert(snapshotRows, {
+        onConflict: 'user_id,sheet_id,sheet_tab_name,hubspot_page_id',
+      })
+
+      if (snapshotError) {
+        console.error('Failed to save structured page snapshots:', snapshotError)
+        // Don't fail the export, but log the error.
+      }
+    }
+
+    // if (snapshotError) {
+    //   console.error('Failed to save export snapshot:', snapshotError)
+    // }
 
     return NextResponse.json({
       success: true,
