@@ -3,10 +3,7 @@ import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { sheetId: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { sheetId: string } }) {
   try {
     const { tabName } = await request.json()
     const { sheetId } = params
@@ -41,15 +38,15 @@ export async function POST(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${tabName}!A:Z`
+      range: `${tabName}!A:Z`,
     })
 
     const rows = response.data.values || []
-    
+
     if (rows.length === 0) {
       return NextResponse.json({
         success: true,
-        rows: []
+        rows: [],
       })
     }
 
@@ -72,22 +69,32 @@ export async function POST(
       details: {
         sheet_id: sheetId,
         tab_name: tabName,
-        rows_imported: processedData.length
-      }
+        rows_imported: processedData.length,
+      },
     })
 
     return NextResponse.json({
       success: true,
       rows: processedData,
-      headers: headers
+      headers: headers,
     })
-
   } catch (error) {
     console.error('Error fetching sheet data:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch sheet data' },
-      { status: 500 }
-    )
+
+    // Provide more specific error messages
+    let errorMessage = 'Failed to fetch sheet data'
+    if (error instanceof Error) {
+      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+        errorMessage = 'Google Sheets access expired. Please reconnect your Google account.'
+      } else if (error.message.includes('403') || error.message.includes('forbidden')) {
+        errorMessage = 'Access denied. Please check sheet permissions.'
+      } else if (error.message.includes('404') || error.message.includes('not found')) {
+        errorMessage = 'Sheet or tab not found. Please check the sheet ID and tab name.'
+      } else {
+        errorMessage = `Failed to fetch sheet data: ${error.message}`
+      }
+    }
+
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }
-
