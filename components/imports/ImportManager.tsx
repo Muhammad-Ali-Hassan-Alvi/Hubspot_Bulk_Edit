@@ -454,52 +454,35 @@ export default function ImportManager({
     return String(value || '')
   }
 
-  // Get unique field names from changes
-  const uniqueFields = new Set(
-    groupedChangesArray.flatMap((pageChange: any) =>
-      pageChange.changes.map((change: any) => change.field)
-    )
-  )
-
-  const transformedChangesForTable = groupedChangesArray.map((pageChange: any) => {
-    const changeSummary = pageChange.changes.reduce((acc: any, change: any) => {
-      // Create separate columns for previous and new values
-      acc[`${change.field}_previous`] = renderChangeValue(change.oldValue)
-      acc[`${change.field}_new`] = renderChangeValue(change.newValue)
-      return acc
-    }, {})
-
-    return {
-      id: pageChange.pageId,
+  // Flatten all changes into individual rows
+  const flattenedChanges = groupedChangesArray.flatMap((pageChange: any) =>
+    pageChange.changes.map((change: any) => ({
+      id: `${pageChange.pageId}_${change.field}`, // Unique ID for each change
       pageName: pageChange.pageName,
       pageId: pageChange.pageId,
-      changesCount: pageChange.changes.length,
-      ...changeSummary,
-    }
-  })
+      field: change.field,
+      oldValue: renderChangeValue(change.oldValue),
+      newValue: renderChangeValue(change.newValue),
+    }))
+  )
 
-  // Create display columns with previous and new value columns for each field
+  // Create display columns for the flattened structure
   const displayColumns = [
     'pageName',
-    'pageId',
-    'changesCount',
-    ...Array.from(uniqueFields).flatMap(field => [`${field}_previous`, `${field}_new`]),
+    'pageId', 
+    'field',
+    'oldValue',
+    'newValue'
   ]
 
   // Create custom column headers for the DataTable
-  const customColumnHeaders = Array.from(uniqueFields).reduce(
-    (acc, field) => {
-      // Use the field name (which is now the header name) for better display
-      acc[`${field}_previous`] = `${field} (Old)`
-      acc[`${field}_new`] = `${field} (New)`
-      return acc
-    },
-    {
-      pageName: 'Page Name',
-      pageId: 'Page ID',
-      changesCount: 'Changes Count'
-    } as { [key: string]: string }
-  )
+  const customColumnHeaders = {
+    pageName: 'Page Name',
+    pageId: 'Page ID',
+    field: 'Field',
+    oldValue: 'Old Value',
+    newValue: 'New Value'
+  }
 
   return (
     <Card className="w-full">
@@ -649,7 +632,7 @@ export default function ImportManager({
                   <div className="mt-6 space-y-4 ">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{currentData.length} rows</Badge>
+                        {/* <Badge variant="secondary">{currentData.length} rows</Badge> */}
                         {hasChanges && (
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">
@@ -728,20 +711,20 @@ export default function ImportManager({
                           <h4 className="font-medium">Detected Changes:</h4>
                         </div>
                         <DataTable
-                          filteredContent={transformedChangesForTable}
+                          filteredContent={flattenedChanges}
                           displayColumns={displayColumns}
                           selectedRows={selectedChangedRows}
                           currentPage={1}
                           totalPages={1}
-                          totalItems={transformedChangesForTable.length}
-                          itemsPerPage={transformedChangesForTable.length}
+                          totalItems={flattenedChanges.length}
+                          itemsPerPage={flattenedChanges.length}
                           loading={false}
-                          currentContentTypeLabel="Changed Pages"
+                          currentContentTypeLabel="Detected Changes"
                           customColumnHeaders={customColumnHeaders}
                           onSelectAll={checked => {
                             if (checked) {
                               setSelectedChangedRows(
-                                transformedChangesForTable.map(item => item.id)
+                                flattenedChanges.map(item => item.id)
                               )
                             } else {
                               setSelectedChangedRows([])
