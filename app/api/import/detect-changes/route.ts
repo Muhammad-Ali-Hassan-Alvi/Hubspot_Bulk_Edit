@@ -11,14 +11,19 @@ import { getAuthenticatedUser } from '@/lib/store/serverUtils'
  */
 const isEmptyOrNA = (value: any): boolean => {
   if (value === null || value === undefined) {
-    return true;
+    return true
   }
   if (typeof value === 'string') {
-    const trimmedValue = value.trim().toLowerCase();
-    return trimmedValue === '' || trimmedValue === 'n/a' || trimmedValue === 'undefined' || trimmedValue === 'null';
+    const trimmedValue = value.trim().toLowerCase()
+    return (
+      trimmedValue === '' ||
+      trimmedValue === 'n/a' ||
+      trimmedValue === 'undefined' ||
+      trimmedValue === 'null'
+    )
   }
-  return false;
-};
+  return false
+}
 
 /**
  * Normalizes a value for a consistent string-based comparison.
@@ -28,28 +33,35 @@ const isEmptyOrNA = (value: any): boolean => {
  */
 const normalizeForComparison = (value: any): string => {
   if (isEmptyOrNA(value)) {
-    return ""; // Represent all empty-like values as an empty string
+    return '' // Represent all empty-like values as an empty string
   }
   // For objects and arrays, stringify them for a consistent comparison
   if (typeof value === 'object') {
     // Handle Supabase's empty array/object representation vs sheet's string version
-    if (Array.isArray(value) && value.length === 0) return '[]';
-    if (Object.keys(value).length === 0) return '{}';
-    return JSON.stringify(value);
+    if (Array.isArray(value) && value.length === 0) return '[]'
+    if (Object.keys(value).length === 0) return '{}'
+    return JSON.stringify(value)
   }
   // Convert booleans to lowercase strings
   if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
+    return value ? 'true' : 'false'
   }
   // For everything else, convert to string and trim
-  return String(value).trim();
-};
+  return String(value).trim()
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { userId, importData, sheetId, tabName } = await request.json()
 
-    if (!userId || !importData || !Array.isArray(importData) || !sheetId || !tabName || importData.length === 0) {
+    if (
+      !userId ||
+      !importData ||
+      !Array.isArray(importData) ||
+      !sheetId ||
+      !tabName ||
+      importData.length === 0
+    ) {
       return NextResponse.json(
         { success: false, error: 'Missing or empty required fields.' },
         { status: 400 }
@@ -72,10 +84,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (backupIdError || !latestBackupRun) {
-      return NextResponse.json({
-        success: false,
-        error: 'No database backup found to compare against. Please export your data first.',
-      }, { status: 404 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'No database backup found to compare against. Please export your data first.',
+        },
+        { status: 404 }
+      )
     }
 
     // Get the backup data
@@ -98,31 +113,31 @@ export async function POST(request: NextRequest) {
     // =================================================================
     // START: DYNAMIC FIELD MAPPING
     // =================================================================
-    const headers = Object.keys(importData[0]);
-    
+    const headers = Object.keys(importData[0])
+
     // These fields should be ignored during comparison because they are metadata
     // or the primary key itself.
-    const ignoreList = ['Id', 'Export Date', 'Created At', 'Updated At'];
+    const ignoreList = ['Id', 'Export Date', 'Created At', 'Updated At']
 
-    const fieldsToCompare: { [key: string]: string } = {};
+    const fieldsToCompare: { [key: string]: string } = {}
 
     for (const header of headers) {
       if (ignoreList.some(itemToIgnore => itemToIgnore.toLowerCase() === header.toLowerCase())) {
-            continue;
-        }
-        // Convert "Sheet Header Name" to "database_column_name"
-        const dbField = header.replace(/\s+/g, '_').toLowerCase();
-        fieldsToCompare[header] = dbField;
+        continue
+      }
+      // Convert "Sheet Header Name" to "database_column_name"
+      const dbField = header.replace(/\s+/g, '_').toLowerCase()
+      fieldsToCompare[header] = dbField
     }
     // =================================================================
     // END: DYNAMIC FIELD MAPPING
     // =================================================================
 
-    const changes = [];
+    const changes = []
 
     for (const sheetRow of importData) {
       // HubSpot uses 'Id' from the export, but the DB column is hubspot_page_id
-      const pageId = sheetRow['Id'] 
+      const pageId = sheetRow['Id']
       if (!pageId) continue
 
       const dbPage = dbDataMap.get(String(pageId))
@@ -131,43 +146,66 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const modifiedFields: { [key:string]: any } = {}
+      const modifiedFields: { [key: string]: any } = {}
       let isModified = false
 
       // Compare each dynamically mapped field
       for (const header in fieldsToCompare) {
-        const dbField = fieldsToCompare[header];
-        const sheetValue = sheetRow[header];
-        const dbValue = (dbPage as any)[dbField];
+        const dbField = fieldsToCompare[header]
+        const sheetValue = sheetRow[header]
+        const dbValue = (dbPage as any)[dbField]
 
         // The logic from the previous fix: if the DB has no value, don't flag it as a change.
         if (isEmptyOrNA(dbValue)) {
-            continue;
+          continue
         }
 
-        let normalizedSheetValue = normalizeForComparison(sheetValue);
-        let normalizedDbValue = normalizeForComparison(dbValue);
+        let normalizedSheetValue = normalizeForComparison(sheetValue)
+        let normalizedDbValue = normalizeForComparison(dbValue)
 
-        // Special handling for HubSpot's inconsistent state values
+        // Special handling for HubSpot's state values - normalize to common categories
         if (header === 'Current State' || header === 'State') {
-            if (normalizedSheetValue.toUpperCase() === 'PUBLISHED_OR_SCHEDULED') {
-                normalizedSheetValue = 'published';
-            }
-            if (normalizedDbValue.toUpperCase() === 'PUBLISHED_OR_SCHEDULED') {
-                normalizedDbValue = 'published';
-            }
+          // Normalize sheet value
+          const sheetStateUpper = normalizedSheetValue.toUpperCase()
+          if (sheetStateUpper === 'PUBLISHED_OR_SCHEDULED' || 
+              sheetStateUpper === 'PUBLISHED_AB' || 
+              sheetStateUpper === 'PUBLISHED_AB_VARIANT') {
+            normalizedSheetValue = 'published'
+          } else if (sheetStateUpper === 'DRAFT_AB' || 
+                     sheetStateUpper === 'DRAFT_AB_VARIANT' || 
+                     sheetStateUpper === 'LOSER_AB_VARIANT') {
+            normalizedSheetValue = 'draft'
+          } else if (sheetStateUpper === 'SCHEDULED_AB') {
+            normalizedSheetValue = 'scheduled'
+          }
+
+          // Normalize database value
+          const dbStateUpper = normalizedDbValue.toUpperCase()
+          if (dbStateUpper === 'PUBLISHED_OR_SCHEDULED' || 
+              dbStateUpper === 'PUBLISHED_AB' || 
+              dbStateUpper === 'PUBLISHED_AB_VARIANT') {
+            normalizedDbValue = 'published'
+          } else if (dbStateUpper === 'DRAFT_AB' || 
+                     dbStateUpper === 'DRAFT_AB_VARIANT' || 
+                     dbStateUpper === 'LOSER_AB_VARIANT') {
+            normalizedDbValue = 'draft'
+          } else if (dbStateUpper === 'SCHEDULED_AB') {
+            normalizedDbValue = 'scheduled'
+          }
         }
-        
+
         // Compare the normalized values
         if (normalizedDbValue.toLowerCase() !== normalizedSheetValue.toLowerCase()) {
-           isModified = true;
-           modifiedFields[dbField] = {
-             old: dbValue,
-             new: sheetValue,
-             header: header,
-             dbField: dbField,
-           };
-           console.log(`Change detected for page ${pageId}, field ${header}: db="${dbValue}" -> sheet="${sheetValue}"`);
+          isModified = true
+          modifiedFields[dbField] = {
+            old: dbValue,
+            new: sheetValue,
+            header: header,
+            dbField: dbField,
+          }
+          console.log(
+            `Change detected for page ${pageId}, field ${header}: db="${dbValue}" -> sheet="${sheetValue}"`
+          )
         }
       }
 

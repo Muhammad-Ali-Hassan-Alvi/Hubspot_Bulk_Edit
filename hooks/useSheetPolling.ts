@@ -26,14 +26,14 @@ export function useSheetPolling({
   contentType,
   intervalMs = 30000, // 30 seconds default
   enabled = false,
-  onChangesDetected
+  onChangesDetected,
 }: PollingOptions) {
   const [state, setState] = useState<PollingState>({
     isPolling: false,
     lastCheck: null,
     lastDataHash: null,
     changes: [],
-    error: null
+    error: null,
   })
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -42,12 +42,13 @@ export function useSheetPolling({
   // Generate a simple hash for data comparison
   const generateDataHash = useCallback((data: any[]) => {
     if (!data || data.length === 0) return 'empty'
-    
+
     // Create a simple hash based on row count and first few rows
-    const sample = data.slice(0, 3).map(row => 
-      Object.values(row).join('|')
-    ).join('||')
-    
+    const sample = data
+      .slice(0, 3)
+      .map(row => Object.values(row).join('|'))
+      .join('||')
+
     return `${data.length}_${sample.length}_${JSON.stringify(sample).slice(0, 100)}`
   }, [])
 
@@ -64,8 +65,8 @@ export function useSheetPolling({
           contentType,
           sheetId,
           tabName,
-          lastDataHash: state.lastDataHash
-        })
+          lastDataHash: state.lastDataHash,
+        }),
       })
 
       if (!response.ok) {
@@ -96,7 +97,7 @@ export function useSheetPolling({
         ...prev,
         lastDataHash: result.dataHash,
         lastCheck: new Date(),
-        changes: result.hasChanges ? result.changes : prev.changes
+        changes: result.hasChanges ? result.changes : prev.changes,
       }))
 
       // Show notification if there are changes
@@ -104,7 +105,7 @@ export function useSheetPolling({
         toast({
           title: 'Sheet Changes Detected',
           description: `${result.changes.length} changes found in your Google Sheet`,
-          duration: 5000
+          duration: 5000,
         })
 
         // Trigger callback for auto-sync
@@ -112,20 +113,19 @@ export function useSheetPolling({
           onChangesDetected(result.changes)
         }
       }
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setState(prev => ({
         ...prev,
         error: errorMessage,
-        lastCheck: new Date()
+        lastCheck: new Date(),
       }))
 
       toast({
         title: 'Polling Error',
         description: errorMessage,
         variant: 'destructive',
-        duration: 5000
+        duration: 5000,
       })
     }
   }, [enabled, sheetId, tabName, userId, pollForChangesOptimized, toast])
@@ -198,6 +198,6 @@ export function useSheetPolling({
     togglePolling,
     clearChanges,
     pollForChanges, // Manual trigger
-    onChangesDetected // Expose the callback for external updates
+    onChangesDetected, // Expose the callback for external updates
   }
 }

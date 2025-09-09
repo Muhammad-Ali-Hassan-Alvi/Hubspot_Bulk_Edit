@@ -7,10 +7,7 @@ export async function POST(request: NextRequest) {
     const { userId, contentType, sheetId, tabName, lastDataHash } = await request.json()
 
     if (!userId || !sheetId || !tabName) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required data' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'Missing required data' }, { status: 400 })
     }
 
     const supabase = createClient()
@@ -43,17 +40,17 @@ export async function POST(request: NextRequest) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${tabName}!A:Z`
+      range: `${tabName}!A:Z`,
     })
 
     const rows = response.data.values || []
-    
+
     if (rows.length === 0) {
       return NextResponse.json({
         success: true,
         hasChanges: false,
         dataHash: 'empty',
-        changes: []
+        changes: [],
       })
     }
 
@@ -77,7 +74,7 @@ export async function POST(request: NextRequest) {
         success: true,
         hasChanges: false,
         dataHash: currentDataHash,
-        changes: []
+        changes: [],
       })
     }
 
@@ -99,25 +96,27 @@ export async function POST(request: NextRequest) {
         hasChanges: false,
         dataHash: currentDataHash,
         changes: [],
-        message: 'No page snapshots found to compare against. Please export the data first.'
+        message: 'No page snapshots found to compare against. Please export the data first.',
       })
     }
 
     // Create a Map for fast lookups using hubspot_page_id
-    const originalDataMap = new Map(pageSnapshots.map((item: any) => [String(item.hubspot_page_id), item]))
+    const originalDataMap = new Map(
+      pageSnapshots.map((item: any) => [String(item.hubspot_page_id), item])
+    )
 
     // Only compare the most essential content fields that users actually edit
     const fieldsToCompare: { [key: string]: string } = {
-      'Name': 'name',
+      Name: 'name',
       'Html Title': 'html_title',
       'Meta Description': 'meta_description',
-      'Slug': 'slug',
-      'State': 'state',
+      Slug: 'slug',
+      State: 'state',
       'Current State': 'current_state',
       'Content Type': 'content_type',
-      'Published': 'published',
+      Published: 'published',
     }
-    
+
     // ========================================================================
     // KEY CHANGE #2: Compare sheet data against the snapshot map
     // ========================================================================
@@ -198,7 +197,7 @@ export async function POST(request: NextRequest) {
             normalizedSnapshotValue,
             oldStr,
             newStr,
-            isDifferent: oldStr !== newStr
+            isDifferent: oldStr !== newStr,
           })
         }
       }
@@ -265,11 +264,12 @@ export async function POST(request: NextRequest) {
 // Generate a simple hash for data comparison
 function generateDataHash(data: any[]): string {
   if (!data || data.length === 0) return 'empty'
-  
+
   // Create a simple hash based on row count and first few rows
-  const sample = data.slice(0, 3).map(row => 
-    Object.values(row).join('|')
-  ).join('||')
-  
+  const sample = data
+    .slice(0, 3)
+    .map(row => Object.values(row).join('|'))
+    .join('||')
+
   return `${data.length}_${sample.length}_${JSON.stringify(sample).slice(0, 100)}`
 }

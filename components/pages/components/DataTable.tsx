@@ -58,7 +58,7 @@ const formatColumnLabel = (key: string, customHeaders?: { [key: string]: string 
   if (customHeaders && customHeaders[key]) {
     return customHeaders[key]
   }
-  
+
   // Default formatting
   const result = key.replace(/([A-Z])/g, ' $1')
   return result.charAt(0).toUpperCase() + result.slice(1)

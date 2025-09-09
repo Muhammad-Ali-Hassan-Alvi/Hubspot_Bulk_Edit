@@ -7,15 +7,12 @@ export async function POST(request: NextRequest) {
     const { userId, contentType, importData, changes, isPollingSync = false } = await request.json()
 
     if (!userId || !importData || !Array.isArray(importData)) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required data' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'Missing required data' }, { status: 400 })
     }
 
     const supabase = createClient()
     const user = await getAuthenticatedUser()
-    
+
     if (user.id !== userId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
@@ -27,10 +24,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!userSettings?.hubspot_token_encrypted) {
-      return NextResponse.json(
-        { success: false, error: 'HubSpot not connected' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'HubSpot not connected' }, { status: 400 })
     }
 
     let syncedCount = 0
@@ -45,35 +39,34 @@ export async function POST(request: NextRequest) {
         const response = await fetch(`https://api.hubapi.com/cms/v3/pages/${importItem.id}`, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${userSettings.hubspot_token_encrypted}`,
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${userSettings.hubspot_token_encrypted}`,
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify(updateData)
+          body: JSON.stringify(updateData),
         })
 
         if (response.ok) {
           syncedCount++
-          
+
           await supabase.from('hubspot_pages').upsert({
             id: importItem.id,
             user_id: userId,
             ...updateData,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-
         } else {
           failedCount++
           const errorData = await response.text()
           errors.push({
             pageId: importItem.id,
-            error: errorData
+            error: errorData,
           })
         }
       } catch (error) {
         failedCount++
         errors.push({
           pageId: importItem.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         })
       }
     }
@@ -88,17 +81,16 @@ export async function POST(request: NextRequest) {
         failed_count: failedCount,
         errors: errors,
         is_polling_sync: isPollingSync,
-        changes_count: changes?.length || 0
-      }
+        changes_count: changes?.length || 0,
+      },
     })
 
     return NextResponse.json({
       success: true,
       synced: syncedCount,
       failed: failedCount,
-      errors: errors
+      errors: errors,
     })
-
   } catch (error) {
     console.error('Error syncing to HubSpot:', error)
     return NextResponse.json(
@@ -107,4 +99,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

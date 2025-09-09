@@ -85,7 +85,9 @@ export async function POST(request: Request) {
     const toCamel = (label: string) =>
       label
         .split(/[\s_]+/)
-        .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+        .map((w, i) =>
+          i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        )
         .join('')
 
     const toSnake = (s: string) =>
@@ -99,7 +101,10 @@ export async function POST(request: Request) {
     function tryParseJSON(value: any) {
       if (typeof value !== 'string') return value
       const trimmed = value.trim()
-      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
         try {
           return JSON.parse(trimmed)
         } catch {
@@ -142,8 +147,6 @@ export async function POST(request: Request) {
         }
       }
 
-      
-
       return null
     }
     // -------------------------------------------------------------------------------
@@ -153,7 +156,9 @@ export async function POST(request: Request) {
       const key = label
         .split(' ')
         .map((word, index) =>
-          index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          index === 0
+            ? word.toLowerCase()
+            : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         )
         .join('')
 
@@ -270,9 +275,11 @@ export async function POST(request: Request) {
         }
       })
 
-      const { error: snapshotError } = await supabase.from('hubspot_page_backups').upsert(snapshotRows, {
-        onConflict: 'user_id,hubspot_page_id',
-      })
+      const { error: snapshotError } = await supabase
+        .from('hubspot_page_backups')
+        .upsert(snapshotRows, {
+          onConflict: 'user_id,hubspot_page_id',
+        })
 
       if (snapshotError) {
         console.error('Failed to save structured page snapshots:', snapshotError)
