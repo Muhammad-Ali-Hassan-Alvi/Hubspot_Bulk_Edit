@@ -144,17 +144,25 @@ export const useImportManager = ({
   }
 
   const detectChanges = async (importData: ImportData[], sheetId: string, tabName: string) => {
-    if (!user?.id || importData.length === 0 || !sheetId || !tabName) return
+    if (!user?.id || importData.length === 0) return
     setIsLoading(true)
     try {
       const response = await fetch('/api/import/detect-changes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, contentType, importData, sheetId, tabName }),
+        body: JSON.stringify({ userId: user.id, importData, sheetId, tabName }),
       })
       if (response.ok) {
         const data = await response.json()
         setChanges(data.changes || [])
+        console.log(`Detected ${data.changes?.length || 0} changes from database backup`)
+      } else {
+        const errorData = await response.json()
+        toast({ 
+          title: 'Error detecting changes', 
+          description: errorData.error || 'Failed to detect changes', 
+          variant: 'destructive' 
+        })
       }
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to detect changes', variant: 'destructive' })

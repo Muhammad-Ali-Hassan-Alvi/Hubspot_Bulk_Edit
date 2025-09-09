@@ -142,9 +142,7 @@ export async function POST(request: Request) {
         }
       }
 
-      // Some common fallback keys
-      if (page.id !== undefined) return normalizeCellValue(page.id)
-      if (page.name !== undefined) return normalizeCellValue(page.name)
+      
 
       return null
     }
@@ -259,37 +257,21 @@ export async function POST(request: Request) {
 
         return {
           user_id: user.id,
-          sheet_id: sheetId,
-          sheet_tab_name: tabName,
-
-          // Map from label -> snapshot column using safe extractor
           hubspot_page_id: safe('Id', 'id'),
-          url: safe('Url', 'url'),
+          page_type: safe('Content Type', 'contentType'),
           name: safe('Name', 'name'),
-          slug: safe('Slug', 'slug'),
-          state: safe('State', 'state'),
+          url: safe('Url', 'url'),
           html_title: safe('Html Title', 'htmlTitle'),
           meta_description: safe('Meta Description', 'metaDescription'),
-          published: safe('Published', 'published'),
-          archived_at: safe('Archived At', 'archivedAt'),
-          author_name: safe('Author Name', 'authorName'),
-          category_id: safe('Category Id', 'categoryId'),
-          content_type: safe('Content Type', 'contentType'),
-          created_by_id: safe('Created By Id', 'createdById'),
-          publish_date: safe('Publish Date', 'publishDate'),
-          updated_at: safe('Updated At', 'updatedAt'),
-          updated_by_id: safe('Updated By Id', 'updatedById'),
-          current_state: safe('Current State', 'currentState'),
-          widgets: safe('Widgets', 'widgets'),
-          layout_sections: safe('Layout Sections', 'layoutSections'),
-          translations: safe('Translations', 'translations'),
-          public_access_rules: safe('Public Access Rules', 'publicAccessRules'),
-          // Add any other fields you want to save...
+          slug: safe('Slug', 'slug'),
+          state: safe('State', 'state'),
+          body_content: safe('Layout Sections', 'layoutSections'), // Store layout sections as body content
+          backup_id: `${sheetId}_${tabName}_${new Date().toISOString()}`, // Create unique backup ID
         }
       })
 
-      const { error: snapshotError } = await supabase.from('page_snapshots').upsert(snapshotRows, {
-        onConflict: 'user_id,sheet_id,sheet_tab_name,hubspot_page_id',
+      const { error: snapshotError } = await supabase.from('hubspot_page_backups').upsert(snapshotRows, {
+        onConflict: 'user_id,hubspot_page_id',
       })
 
       if (snapshotError) {
