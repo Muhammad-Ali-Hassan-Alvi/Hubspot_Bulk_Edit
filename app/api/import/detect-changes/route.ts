@@ -167,13 +167,17 @@ export async function POST(request: NextRequest) {
         if (header === 'Current State' || header === 'State') {
           // Normalize sheet value
           const sheetStateUpper = normalizedSheetValue.toUpperCase()
-          if (sheetStateUpper === 'PUBLISHED_OR_SCHEDULED' || 
-              sheetStateUpper === 'PUBLISHED_AB' || 
-              sheetStateUpper === 'PUBLISHED_AB_VARIANT') {
+          if (
+            sheetStateUpper === 'PUBLISHED_OR_SCHEDULED' ||
+            sheetStateUpper === 'PUBLISHED_AB' ||
+            sheetStateUpper === 'PUBLISHED_AB_VARIANT'
+          ) {
             normalizedSheetValue = 'published'
-          } else if (sheetStateUpper === 'DRAFT_AB' || 
-                     sheetStateUpper === 'DRAFT_AB_VARIANT' || 
-                     sheetStateUpper === 'LOSER_AB_VARIANT') {
+          } else if (
+            sheetStateUpper === 'DRAFT_AB' ||
+            sheetStateUpper === 'DRAFT_AB_VARIANT' ||
+            sheetStateUpper === 'LOSER_AB_VARIANT'
+          ) {
             normalizedSheetValue = 'draft'
           } else if (sheetStateUpper === 'SCHEDULED_AB') {
             normalizedSheetValue = 'scheduled'
@@ -181,13 +185,17 @@ export async function POST(request: NextRequest) {
 
           // Normalize database value
           const dbStateUpper = normalizedDbValue.toUpperCase()
-          if (dbStateUpper === 'PUBLISHED_OR_SCHEDULED' || 
-              dbStateUpper === 'PUBLISHED_AB' || 
-              dbStateUpper === 'PUBLISHED_AB_VARIANT') {
+          if (
+            dbStateUpper === 'PUBLISHED_OR_SCHEDULED' ||
+            dbStateUpper === 'PUBLISHED_AB' ||
+            dbStateUpper === 'PUBLISHED_AB_VARIANT'
+          ) {
             normalizedDbValue = 'published'
-          } else if (dbStateUpper === 'DRAFT_AB' || 
-                     dbStateUpper === 'DRAFT_AB_VARIANT' || 
-                     dbStateUpper === 'LOSER_AB_VARIANT') {
+          } else if (
+            dbStateUpper === 'DRAFT_AB' ||
+            dbStateUpper === 'DRAFT_AB_VARIANT' ||
+            dbStateUpper === 'LOSER_AB_VARIANT'
+          ) {
             normalizedDbValue = 'draft'
           } else if (dbStateUpper === 'SCHEDULED_AB') {
             normalizedDbValue = 'scheduled'

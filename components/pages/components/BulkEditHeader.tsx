@@ -106,7 +106,9 @@ export default function BulkEditHeader({
         if (data.success && data.dropdownOptions) {
           setHubspotDropdownOptions(data.dropdownOptions)
           setDropdownOptionsLoaded(true)
-          console.log(`✅ Loaded ${Object.keys(data.dropdownOptions).length} dropdown categories with ${data.stats?.totalValues || 0} total options`)
+          console.log(
+            `✅ Loaded ${Object.keys(data.dropdownOptions).length} dropdown categories with ${data.stats?.totalValues || 0} total options`
+          )
           toast({
             title: 'Dropdown options loaded',
             description: `Loaded ${data.stats?.totalValues || 0} options from HubSpot`,
@@ -160,7 +162,7 @@ export default function BulkEditHeader({
           'PUBLISHED_AB',
           'PUBLISHED_AB_VARIANT',
           // Additional common states
-          'ARCHIVED'
+          'ARCHIVED',
         ]
       }
       if (!combinedOptions.redirectStyle) {
@@ -236,7 +238,7 @@ export default function BulkEditHeader({
     }
 
     return combinedOptions
-  }, [hubspotDropdownOptions, allContent])
+  }, [hubspotDropdownOptions, allContent, dropdownOptionsLoaded])
 
   useEffect(() => {
     setUpdates({})
@@ -344,7 +346,7 @@ export default function BulkEditHeader({
           <Select
             value={updates[field.key] ? String(updates[field.key]) : ''}
             onValueChange={value => handleValueChange(field.key, value)}
-            onOpenChange={open => {
+            onOpenChange={_open => {
               // Options are already loaded in bulk, no need to fetch individually
             }}
           >
@@ -457,7 +459,7 @@ export default function BulkEditHeader({
               <Select
                 value={updates[field.key] ? String(updates[field.key]) : ''}
                 onValueChange={value => handleValueChange(field.key, value)}
-                onOpenChange={open => {
+                onOpenChange={_open => {
                   // Options are already loaded in bulk, no need to fetch individually
                 }}
               >
@@ -542,14 +544,16 @@ export default function BulkEditHeader({
               </CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => fetchAllDropdownOptions(true)} 
-                size="sm" 
+              <Button
+                onClick={() => fetchAllDropdownOptions(true)}
+                size="sm"
                 variant="outline"
                 disabled={loadingAllDropdownOptions}
                 title="Refresh all dropdown options from HubSpot"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loadingAllDropdownOptions ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${loadingAllDropdownOptions ? 'animate-spin' : ''}`}
+                />
                 Refresh Options
               </Button>
               <Button onClick={handleConfirm} size="sm" disabled={isPublishing}>
