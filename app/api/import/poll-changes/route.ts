@@ -183,6 +183,8 @@ export async function POST(request: NextRequest) {
           modifiedFields[dbColumn] = {
             old: snapshotValue,
             new: sheetValue,
+            header: header, // Include the header/column name from the sheet
+            dbColumn: dbColumn, // Include the database column name
           }
         }
 
@@ -209,6 +211,8 @@ export async function POST(request: NextRequest) {
             oldValue: (values as any).old ?? '',
             newValue: (values as any).new ?? '',
             pageId: pageId,
+            header: (values as any).header, // Include the header/column name
+            dbColumn: (values as any).dbColumn, // Include the database column name
           })
         }
       }

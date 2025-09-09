@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
           modifiedFields[dbColumn] = {
             old: snapshotValue, // Send back the raw original value
             new: sheetValue, // Send back the raw new value
+            header: header, // Include the header/column name from the sheet
+            dbColumn: dbColumn, // Include the database column name
           }
         }
 

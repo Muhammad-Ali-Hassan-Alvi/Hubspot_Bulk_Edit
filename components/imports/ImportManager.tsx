@@ -409,14 +409,22 @@ export default function ImportManager({
       if (change.fields) {
         Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => {
           acc[pageId].changes.push({
-            field: fieldName,
+            field: fieldData.header || fieldName, // Use header name if available, fallback to field name
+            dbField: fieldName, // Keep the database field name for reference
             oldValue: fieldData.old,
             newValue: fieldData.new,
             pageId: change.pageId,
           })
         })
       } else {
-        acc[pageId].changes.push(change)
+        // For poll-changes format, use header if available
+        acc[pageId].changes.push({
+          field: change.header || change.field, // Use header name if available
+          dbField: change.field, // Keep the database field name for reference
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+          pageId: change.pageId,
+        })
       }
 
       return acc
@@ -446,7 +454,6 @@ export default function ImportManager({
     return String(value || '')
   }
 
-
   // Get unique field names from changes
   const uniqueFields = new Set(
     groupedChangesArray.flatMap((pageChange: any) =>
@@ -474,17 +481,25 @@ export default function ImportManager({
   // Create display columns with previous and new value columns for each field
   const displayColumns = [
     'pageName',
-    'pageId', 
+    'pageId',
     'changesCount',
-    ...Array.from(uniqueFields).flatMap(field => [`${field}_previous`, `${field}_new`])
+    ...Array.from(uniqueFields).flatMap(field => [`${field}_previous`, `${field}_new`]),
   ]
 
   // Create custom column headers for the DataTable
-  const customColumnHeaders = Array.from(uniqueFields).reduce((acc, field) => {
-    acc[`${field}_previous`] = 'Old Value'
-    acc[`${field}_new`] = 'New Value'
-    return acc
-  }, {} as { [key: string]: string })
+  const customColumnHeaders = Array.from(uniqueFields).reduce(
+    (acc, field) => {
+      // Use the field name (which is now the header name) for better display
+      acc[`${field}_previous`] = `${field} (Old)`
+      acc[`${field}_new`] = `${field} (New)`
+      return acc
+    },
+    {
+      pageName: 'Page Name',
+      pageId: 'Page ID',
+      changesCount: 'Changes Count'
+    } as { [key: string]: string }
+  )
 
   return (
     <Card className="w-full">
