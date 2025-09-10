@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Get the latest backup to compare against
     const { data: latestBackupRun, error: backupIdError } = await supabase
-      .from('hubspot_page_backups')
+      .from('page_snapshots')
       .select('backup_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -93,9 +93,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the backup data
+    // Get the latest snapshot data to compare against (not the backup data)
     const { data: dbBackupData, error: dbError } = await supabase
-      .from('hubspot_page_backups')
+      .from('page_snapshots')
       .select('*')
       .eq('user_id', user.id)
       .eq('backup_id', latestBackupRun.backup_id)
@@ -125,13 +125,22 @@ export async function POST(request: NextRequest) {
       if (ignoreList.some(itemToIgnore => itemToIgnore.toLowerCase() === header.toLowerCase())) {
         continue
       }
-      // Convert "Sheet Header Name" to "database_column_name"
+      // Map sheet headers to page_snapshots table column names
+      // The page_snapshots table uses snake_case field names
       const dbField = header.replace(/\s+/g, '_').toLowerCase()
       fieldsToCompare[header] = dbField
     }
     // =================================================================
     // END: DYNAMIC FIELD MAPPING
     // =================================================================
+
+    // Debug: Log the data we're working with
+    console.log('=== DEBUG INFO ===')
+    console.log('Total snapshot records found:', dbBackupData.length)
+    console.log('Sample snapshot record:', dbBackupData[0])
+    console.log('Sheet headers:', Object.keys(importData[0]))
+    console.log('Sample sheet row:', importData[0])
+    console.log('Field mapping:', fieldsToCompare)
 
     const changes = []
 
@@ -142,8 +151,15 @@ export async function POST(request: NextRequest) {
 
       const dbPage = dbDataMap.get(String(pageId))
       if (!dbPage) {
-        console.log(`No backup data found for page ID: ${pageId}`)
+        console.log(`No snapshot data found for page ID: ${pageId}`)
         continue
+      }
+
+      // Debug: Log specific page we're checking
+      if (pageId === '221892034283') {
+        console.log('=== CHECKING PAGE 221892034283 ===')
+        console.log('Sheet data:', sheetRow)
+        console.log('DB snapshot data:', dbPage)
       }
 
       const modifiedFields: { [key: string]: any } = {}
@@ -155,13 +171,39 @@ export async function POST(request: NextRequest) {
         const sheetValue = sheetRow[header]
         const dbValue = (dbPage as any)[dbField]
 
-        // The logic from the previous fix: if the DB has no value, don't flag it as a change.
-        if (isEmptyOrNA(dbValue)) {
+        // Skip comparison if the database field doesn't exist (undefined) or is null - this prevents
+        // false positives where the page_snapshots table doesn't have all fields
+        if (dbValue === undefined || dbValue === null) {
+          if (pageId === '221892034283' && (header === 'Name' || header === 'Html Title')) {
+            console.log(`Skipping field ${header} - not in database (${dbValue})`)
+          }
+          continue
+        }
+
+        // Debug: Log field comparison for our specific page
+        if (pageId === '221892034283' && (header === 'Name' || header === 'Html Title')) {
+          console.log(`Field: ${header} -> DB Field: ${dbField}`)
+          console.log(`Sheet value: "${sheetValue}"`)
+          console.log(`DB value: "${dbValue}"`)
+          console.log(`Is DB empty: ${isEmptyOrNA(dbValue)}`)
+          console.log(`Is Sheet empty: ${isEmptyOrNA(sheetValue)}`)
+        }
+
+        // Skip comparison only if BOTH values are empty - this allows detection of changes
+        // when database has empty values but sheet has data (like new DRAFT pages)
+        if (isEmptyOrNA(dbValue) && isEmptyOrNA(sheetValue)) {
           continue
         }
 
         let normalizedSheetValue = normalizeForComparison(sheetValue)
         let normalizedDbValue = normalizeForComparison(dbValue)
+
+        // Special handling for date formats - normalize timezone formats
+        if (header === 'Archived At' || header === 'Publish Date') {
+          // Normalize both values to the same timezone format
+          normalizedSheetValue = normalizedSheetValue.replace(/Z$/, '+00:00')
+          normalizedDbValue = normalizedDbValue.replace(/Z$/, '+00:00')
+        }
 
         // Special handling for HubSpot's state values - normalize to common categories
         if (header === 'Current State' || header === 'State') {

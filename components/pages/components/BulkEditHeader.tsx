@@ -75,118 +75,82 @@ export default function BulkEditHeader({
   const fieldsToUse = useMemo(() => {
     return _contentType ? getHubSpotInAppEditFieldsAsObjects(_contentType) : EDITABLE_FIELDS
   }, [_contentType])
-  // Bulk loading dropdown options - fetch all at once
+  // Lazy loading dropdown options - only fetch when needed
   const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>(
     {}
   )
-  const [loadingAllDropdownOptions, setLoadingAllDropdownOptions] = useState(false)
-  const [dropdownOptionsLoaded, setDropdownOptionsLoaded] = useState(false)
+  const [loadingDropdownOptions, setLoadingDropdownOptions] = useState<{ [key: string]: boolean }>(
+    {}
+  )
+  const [loadedFields, setLoadedFields] = useState<Set<string>>(new Set())
 
-  // Fetch ALL dropdown options at once for maximum efficiency
-  const fetchAllDropdownOptions = useCallback(
-    async (forceRefresh = false) => {
-      if (!userSettings?.hubspot_token_encrypted || (dropdownOptionsLoaded && !forceRefresh)) {
+  // Fetch specific dropdown options for a field
+  const fetchFieldDropdownOptions = useCallback(
+    async (fieldKey: string) => {
+      if (!userSettings?.hubspot_token_encrypted || loadedFields.has(fieldKey)) {
         return
       }
 
-      setLoadingAllDropdownOptions(true)
+      setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: true }))
       try {
-        console.log('🚀 Fetching ALL dropdown options at once...')
-        const response = await fetch('/api/hubspot/bulk-dropdown-options', {
+        const response = await fetch('/api/hubspot/dropdown-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             hubspotToken: userSettings.hubspot_token_encrypted,
             contentType: _contentType || 'all-pages',
-            useCache: !forceRefresh, // Don't use cache if force refresh
+            specificField: fieldKey, // Request only specific field
           }),
         })
 
         const data = await response.json()
-        if (data.success && data.dropdownOptions) {
-          setHubspotDropdownOptions(data.dropdownOptions)
-          setDropdownOptionsLoaded(true)
-          console.log(
-            `✅ Loaded ${Object.keys(data.dropdownOptions).length} dropdown categories with ${data.stats?.totalValues || 0} total options`
-          )
-          toast({
-            title: 'Dropdown options loaded',
-            description: `Loaded ${data.stats?.totalValues || 0} options from HubSpot`,
-          })
-        } else {
-          console.error('Failed to fetch bulk dropdown options:', data.error)
-          toast({
-            title: 'Failed to load options',
-            description: data.error || 'Failed to fetch dropdown options',
-            variant: 'destructive',
-          })
+        if (data.success && data.dropdownOptions[fieldKey]) {
+          setHubspotDropdownOptions(prev => ({
+            ...prev,
+            [fieldKey]: data.dropdownOptions[fieldKey],
+          }))
+          setLoadedFields(prev => new Set([...prev, fieldKey]))
         }
       } catch (error) {
-        console.error('Failed to fetch bulk dropdown options:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch dropdown options',
-          variant: 'destructive',
-        })
+        console.error(`Failed to fetch dropdown options for ${fieldKey}:`, error)
       } finally {
-        setLoadingAllDropdownOptions(false)
+        setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: false }))
       }
     },
-    [userSettings?.hubspot_token_encrypted, _contentType, dropdownOptionsLoaded, toast]
+    [userSettings?.hubspot_token_encrypted, _contentType, loadedFields]
   )
 
-  // Auto-fetch all dropdown options when component mounts or token changes
-  useEffect(() => {
-    if (userSettings?.hubspot_token_encrypted && !dropdownOptionsLoaded) {
-      fetchAllDropdownOptions()
-    }
-  }, [userSettings?.hubspot_token_encrypted, dropdownOptionsLoaded, fetchAllDropdownOptions])
+  // No pre-loading - everything is lazy loaded when clicked
 
   const fieldOptions = useMemo(() => {
-    // Use the bulk-loaded HubSpot options (no need for fallbacks since we fetch everything)
+    // Combine HubSpot options with local content options for better coverage
     const combinedOptions = { ...hubspotDropdownOptions }
 
-    // Add fallback options only if bulk loading failed
-    if (!dropdownOptionsLoaded) {
-      if (!combinedOptions.state) {
-        combinedOptions.state = [
-          // Draft states
-          'DRAFT',
-          'DRAFT_AB',
-          'DRAFT_AB_VARIANT',
-          'LOSER_AB_VARIANT',
-          // Scheduled states
-          'PUBLISHED_OR_SCHEDULED',
-          'SCHEDULED_AB',
-          // Published states
-          'PUBLISHED_AB',
-          'PUBLISHED_AB_VARIANT',
-          // Additional common states
-          'ARCHIVED',
-        ]
-      }
-      if (!combinedOptions.redirectStyle) {
-        combinedOptions.redirectStyle = ['301', '302', '307', '308']
-      }
-      if (!combinedOptions.precedence) {
-        combinedOptions.precedence = ['1', '2', '3', '4', '5', '10', '20', '50', '100']
-      }
-      if (!combinedOptions.language) {
-        combinedOptions.language = [
-          'English - en',
-          'Spanish - es',
-          'French - fr',
-          'German - de',
-          'Italian - it',
-          'Portuguese - pt',
-          'Japanese - ja',
-          'Chinese - zh',
-          'Korean - ko',
-          'Arabic - ar',
-          'Hindi - hi',
-          'Russian - ru',
-        ]
-      }
+    // Add default options for certain fields
+    if (!combinedOptions.state) {
+      combinedOptions.state = ['DRAFT', 'PUBLISHED', 'SCHEDULED', 'ARCHIVED']
+    }
+    if (!combinedOptions.redirectStyle) {
+      combinedOptions.redirectStyle = ['301', '302', '307', '308']
+    }
+    if (!combinedOptions.precedence) {
+      combinedOptions.precedence = ['1', '2', '3', '4', '5', '10', '20', '50', '100']
+    }
+    if (!combinedOptions.language) {
+      combinedOptions.language = [
+        'English - en',
+        'Spanish - es',
+        'French - fr',
+        'German - de',
+        'Italian - it',
+        'Portuguese - pt',
+        'Japanese - ja',
+        'Chinese - zh',
+        'Korean - ko',
+        'Arabic - ar',
+        'Hindi - hi',
+        'Russian - ru',
+      ]
     }
 
     if (allContent && Array.isArray(allContent)) {
@@ -238,7 +202,7 @@ export default function BulkEditHeader({
     }
 
     return combinedOptions
-  }, [hubspotDropdownOptions, allContent, dropdownOptionsLoaded])
+  }, [hubspotDropdownOptions, allContent])
 
   useEffect(() => {
     setUpdates({})
@@ -323,7 +287,7 @@ export default function BulkEditHeader({
     const dynamicOptions = fieldOptions[field.key]
     const hasHubspotOptions =
       hubspotDropdownOptions[field.key] && hubspotDropdownOptions[field.key].length > 0
-    const isLoading = loadingAllDropdownOptions
+    const isLoading = loadingDropdownOptions[field.key]
 
     // Fields that should always be dropdowns
     const alwaysDropdownFields = [
@@ -346,8 +310,11 @@ export default function BulkEditHeader({
           <Select
             value={updates[field.key] ? String(updates[field.key]) : ''}
             onValueChange={value => handleValueChange(field.key, value)}
-            onOpenChange={_open => {
-              // Options are already loaded in bulk, no need to fetch individually
+            onOpenChange={open => {
+              // Fetch options when dropdown opens if not already loaded
+              if (open && !loadedFields.has(field.key)) {
+                fetchFieldDropdownOptions(field.key)
+              }
             }}
           >
             <SelectTrigger className="bg-background">
@@ -459,8 +426,10 @@ export default function BulkEditHeader({
               <Select
                 value={updates[field.key] ? String(updates[field.key]) : ''}
                 onValueChange={value => handleValueChange(field.key, value)}
-                onOpenChange={_open => {
-                  // Options are already loaded in bulk, no need to fetch individually
+                onOpenChange={open => {
+                  if (open && !loadedFields.has(field.key)) {
+                    fetchFieldDropdownOptions(field.key)
+                  }
                 }}
               >
                 <SelectTrigger className="bg-background">
@@ -544,18 +513,16 @@ export default function BulkEditHeader({
               </CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                onClick={() => fetchAllDropdownOptions(true)}
-                size="sm"
+              {/* <Button 
+                onClick={fetchHubspotDropdownOptions} 
+                size="sm" 
                 variant="outline"
-                disabled={loadingAllDropdownOptions}
-                title="Refresh all dropdown options from HubSpot"
+                disabled={loadingDropdownOptions}
+                title="Refresh dropdown options from HubSpot"
               >
-                <RefreshCw
-                  className={`h-4 w-4 mr-2 ${loadingAllDropdownOptions ? 'animate-spin' : ''}`}
-                />
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingDropdownOptions ? 'animate-spin' : ''}`} />
                 Refresh Options
-              </Button>
+              </Button> */}
               <Button onClick={handleConfirm} size="sm" disabled={isPublishing}>
                 Upload Changes to HubSpot
               </Button>
@@ -570,12 +537,13 @@ export default function BulkEditHeader({
             </div>
           </div>
 
-          {loadingAllDropdownOptions && (
+          {/* {loadingDropdownOptions && (
             <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Loading all dropdown options from HubSpot...
+              Loading dropdown options from HubSpot...
             </div>
           )}
+           */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
             {fieldsToUse.map(field => (
               <div key={field.key} className="space-y-1.5">
