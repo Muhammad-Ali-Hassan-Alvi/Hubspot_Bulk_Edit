@@ -151,13 +151,41 @@ export async function POST(request: NextRequest) {
 
       const dbPage = dbDataMap.get(String(pageId))
       if (!dbPage) {
-        console.log(`No snapshot data found for page ID: ${pageId}`)
+        console.log(`No snapshot data found for page ID: ${pageId} - treating as new page`)
+        // If page doesn't exist in snapshot, treat it as a new page with all fields as changes
+        const newPageChanges: { [key: string]: any } = {}
+        let hasChanges = false
+        
+        for (const header in fieldsToCompare) {
+          const dbField = fieldsToCompare[header]
+          const sheetValue = sheetRow[header]
+          
+          // Skip empty values for new pages
+          if (isEmptyOrNA(sheetValue)) continue
+          
+          newPageChanges[dbField] = {
+            old: null, // No old value since it's a new page
+            new: sheetValue,
+            header: header,
+            dbField: dbField,
+          }
+          hasChanges = true
+        }
+        
+        if (hasChanges) {
+          changes.push({
+            pageId: pageId,
+            name: sheetRow['Name'] || `Page ${pageId}`,
+            type: 'new',
+            fields: newPageChanges,
+          })
+        }
         continue
       }
 
       // Debug: Log specific page we're checking
-      if (pageId === '221892034283') {
-        console.log('=== CHECKING PAGE 221892034283 ===')
+      if (pageId === '221892034283' || pageId === '231355241185') {
+        console.log(`=== CHECKING PAGE ${pageId} ===`)
         console.log('Sheet data:', sheetRow)
         console.log('DB snapshot data:', dbPage)
       }

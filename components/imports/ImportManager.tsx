@@ -17,6 +17,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, FileSpreadsheet, Download, CheckCircle, Loader2 } from 'lucide-react'
 import DataTable from '@/components/pages/components/DataTable'
 import SheetAndTabSelector from './SheetAndTabSelector'
+import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
+import UploadingModal from '@/components/modals/UploadingModal'
+import UploadResultsModal from '@/components/modals/UploadResultsModal'
 
 // This small component can stay here as it's only used in this file
 const ImportingDataLoader = ({ progress, message }: { progress: number; message: string }) => {
@@ -63,9 +66,10 @@ export default function ImportManager({
     currentData,
     hasData,
     hasChanges,
-    allChanges,
     flattenedChanges,
     groupedChangesArray,
+    uploadFlow,
+    handleConfirmSync,
     fileInputRef,
     setActiveTab,
     handleCsvUpload,
@@ -89,6 +93,7 @@ export default function ImportManager({
 
   // --- The JSX remains almost identical, just using the values from the hook ---
   return (
+    <>
     <Card className="w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -277,5 +282,38 @@ export default function ImportManager({
         </Tabs>
       </CardContent>
     </Card>
+
+    {/* Upload Flow Modals */}
+    <ConfirmChangesModal
+      isOpen={uploadFlow.showConfirmation}
+      onClose={() => uploadFlow.reset()}
+      onConfirm={handleConfirmSync}
+      changes={flattenedChanges.reduce((acc, change) => {
+        acc[change.field] = change.newValue
+        return acc
+      }, {} as { [key: string]: any })}
+      selectedCount={flattenedChanges.length}
+      isProcessing={uploadFlow.isProcessing}
+    />
+
+    <UploadingModal
+      isOpen={uploadFlow.showProgress}
+      progress={uploadFlow.progress}
+      currentStatus={uploadFlow.currentStatus}
+      selectedCount={flattenedChanges.length}
+    />
+
+    <UploadResultsModal
+      isOpen={uploadFlow.showResults}
+      onClose={() => {
+        uploadFlow.closeResults()
+        uploadFlow.reset()
+      }}
+      onViewLogs={() => window.open('/reports-and-logs/logs', '_blank')}
+      successCount={uploadFlow.uploadResults.success}
+      failedCount={uploadFlow.uploadResults.failed}
+      showViewLogs={true}
+    />
+    </>
   )
 }

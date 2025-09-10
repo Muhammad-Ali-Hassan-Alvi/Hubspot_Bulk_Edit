@@ -27,6 +27,10 @@ import { EDITABLE_FIELDS } from '@/lib/constants'
 import { getHubSpotInAppEditFieldsAsObjects } from '@/lib/utils'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
+import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
+import UploadingModal from '@/components/modals/UploadingModal'
+import UploadResultsModal from '@/components/modals/UploadResultsModal'
+import { useUploadFlow } from '@/hooks/useUploadFlow'
 
 const DatePickerCustomInput = forwardRef(({ value, onClick }: any, ref: any) => (
   <Button variant="outline" onClick={onClick} ref={ref} className="w-full justify-start">
@@ -63,14 +67,9 @@ export default function BulkEditHeader({
   allContent,
 }: BulkEditHeaderProps) {
   const [updates, setUpdates] = useState<{ [key: string]: any }>({})
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [showProgress, setShowProgress] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [currentStatus, setCurrentStatus] = useState('')
-  const [uploadResults, setUploadResults] = useState({ success: 0, failed: 0 })
   const { toast } = useToast()
   const { userSettings } = useUserSettings()
+  const uploadFlow = useUploadFlow()
 
   const fieldsToUse = useMemo(() => {
     return _contentType ? getHubSpotInAppEditFieldsAsObjects(_contentType) : EDITABLE_FIELDS
@@ -235,10 +234,10 @@ export default function BulkEditHeader({
       return
     }
 
-    setShowConfirmation(true)
+    uploadFlow.startConfirmation()
   }
 
-  const handleConfirmChanges = () => {
+  const handleConfirmChanges = async () => {
     const finalUpdates = Object.entries(updates).reduce(
       (acc, [key, value]) => {
         if (value !== '' && value !== null && value !== undefined) {
@@ -249,38 +248,12 @@ export default function BulkEditHeader({
       {} as { [key: string]: any }
     )
 
-    setShowConfirmation(false)
-    setShowProgress(true)
-    setProgress(0)
-    setCurrentStatus('Initializing upload...')
-
-    // Simulate progress updates
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval)
-          setCurrentStatus('Upload completed!')
-          setTimeout(() => {
-            setShowProgress(false)
-            onConfirm(finalUpdates)
-            setUploadResults({ success: selectedRowCount, failed: 0 })
-            setShowResults(true)
-          }, 1000)
-          return 100
-        }
-
-        const newProgress = prev + Math.random() * 15 + 5
-        if (newProgress > 30 && prev <= 30) {
-          setCurrentStatus('Processing items...')
-        } else if (newProgress > 60 && prev <= 60) {
-          setCurrentStatus('Applying updates...')
-        } else if (newProgress > 90 && prev <= 90) {
-          setCurrentStatus('Finalizing changes...')
-        }
-
-        return Math.min(newProgress, 100)
-      })
-    }, 200)
+    await uploadFlow.confirmChanges(async () => {
+      // Simulate the actual upload process
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      onConfirm(finalUpdates)
+      uploadFlow.completeUpload(selectedRowCount, 0)
+    })
   }
 
   const renderField = (field: EditableField) => {
@@ -558,7 +531,17 @@ export default function BulkEditHeader({
       </Card>
 
       {/* Dialogs... */}
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+      <ConfirmChangesModal
+        isOpen={uploadFlow.showConfirmation}
+        onClose={() => uploadFlow.reset()}
+        onConfirm={handleConfirmChanges}
+        changes={updates}
+        selectedCount={selectedRowCount}
+        isProcessing={uploadFlow.isProcessing}
+      />
+
+      {/* Old modal - to be removed */}
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Confirm Changes</DialogTitle>
@@ -619,7 +602,7 @@ export default function BulkEditHeader({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmation(false)}>
+            <Button variant="outline" onClick={() => uploadFlow.reset()}>
               Cancel
             </Button>
             <Button
@@ -640,7 +623,15 @@ export default function BulkEditHeader({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showProgress} onOpenChange={() => {}}>
+      <UploadingModal
+        isOpen={uploadFlow.showProgress}
+        progress={uploadFlow.progress}
+        currentStatus={uploadFlow.currentStatus}
+        selectedCount={selectedRowCount}
+      />
+
+      {/* Old modal - to be removed */}
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Uploading to HubSpot</DialogTitle>
@@ -660,12 +651,12 @@ export default function BulkEditHeader({
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Progress</span>
-                  <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+                  <span className="text-sm text-muted-foreground">{Math.round(uploadFlow.progress)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-teal-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${uploadFlow.progress}%` }}
                   ></div>
                 </div>
               </div>
@@ -674,14 +665,29 @@ export default function BulkEditHeader({
                 <p className="text-sm text-muted-foreground">
                   Processing {selectedRowCount} {selectedRowCount === 1 ? 'item' : 'items'}...
                 </p>
-                <p className="text-sm text-muted-foreground">{currentStatus}</p>
+                <p className="text-sm text-muted-foreground">{uploadFlow.currentStatus}</p>
               </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showResults}>
+      <UploadResultsModal
+        isOpen={uploadFlow.showResults}
+        onClose={() => {
+          uploadFlow.closeResults()
+          uploadFlow.reset()
+          onClearSelection()
+          refreshCurrentPage()
+        }}
+        onViewLogs={() => window.open('/reports-and-logs/logs', '_blank')}
+        successCount={uploadFlow.uploadResults.success}
+        failedCount={uploadFlow.uploadResults.failed}
+        showViewLogs={true}
+      />
+
+      {/* Old modal - to be removed */}
+      <Dialog open={false}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Results</DialogTitle>
@@ -715,11 +721,11 @@ export default function BulkEditHeader({
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{uploadResults.success}</div>
+                  <div className="text-2xl font-bold text-green-600">{uploadFlow.uploadResults.success}</div>
                   <div className="text-sm text-green-600">Items Successfully Updated</div>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">{uploadResults.failed}</div>
+                  <div className="text-2xl font-bold text-red-600">{uploadFlow.uploadResults.failed}</div>
                   <div className="text-sm text-red-600">Items Failed to Update</div>
                 </div>
               </div>
@@ -745,7 +751,8 @@ export default function BulkEditHeader({
                 </Button>
                 <Button
                   onClick={() => {
-                    setShowResults(false)
+                    uploadFlow.closeResults()
+                    uploadFlow.reset()
                     // Clear selection after user closes the modal
                     onClearSelection()
                     refreshCurrentPage()

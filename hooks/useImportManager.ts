@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { useUser, useUserSettings } from '@/hooks/useUserSettings'
 import { useSheetPolling } from '@/hooks/useSheetPolling'
+import { useUploadFlow } from '@/hooks/useUploadFlow'
 
 // --- ➕ Keep your type definitions here, as they relate to the data logic ---
 interface ImportData {
@@ -41,8 +42,8 @@ export const useImportManager = ({
   const [selectedTab, setSelectedTab] = useState<string>('')
   const [sheetData, setSheetData] = useState<ImportData[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncProgress, setSyncProgress] = useState(0)
+  const [isSyncing] = useState(false)
+  const [syncProgress] = useState(0)
   const [changes, setChanges] = useState<any[]>([])
   const [selectedChangedRows, setSelectedChangedRows] = useState<string[]>([])
   const [importProgress, setImportProgress] = useState({
@@ -55,6 +56,7 @@ export const useImportManager = ({
   const { toast } = useToast()
   const { user } = useUser()
   const { userSettings } = useUserSettings()
+  const uploadFlow = useUploadFlow()
   
 
   const polling = useSheetPolling({
@@ -199,47 +201,54 @@ export const useImportManager = ({
     }
   }
 
-  const syncToHubSpot = async () => {
+  const syncToHubSpot = () => {
     const currentData = activeTab === 'csv' ? csvData : sheetData
-    const allChanges = [...changes, ...polling.changes]
-    if (currentData.length === 0) return
-    const dataToSync = selectedChangedRows.length > 0
-      ? currentData.filter(item => selectedChangedRows.includes(item.Id || item.id))
-      : currentData
-    if (dataToSync.length === 0) {
-      toast({ title: 'No items selected', description: 'Please select items to sync.', variant: 'destructive' })
+    if (currentData.length === 0) {
+      toast({ title: 'No data available', description: 'Please import data first.', variant: 'destructive' })
       return
     }
-    setIsSyncing(true)
-    setSyncProgress(0)
-    try {
-      const response = await fetch('/api/import/sync-to-hubspot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, contentType, importData: dataToSync, changes: allChanges }),
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const interval = setInterval(() => {
-          setSyncProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(interval)
-              setIsSyncing(false)
-              toast({ title: 'Sync Complete', description: `Synced ${data.synced || 0} items` })
-              polling.clearChanges()
-              setChanges([])
-              setSelectedChangedRows([])
-              onImportComplete?.(currentData)
-              return 100
-            }
-            return prev + Math.random() * 20 + 10
-          })
-        }, 200)
-      }
-    } catch (error) {
-      setIsSyncing(false)
-      toast({ title: 'Sync Failed', description: 'Failed to sync data to HubSpot', variant: 'destructive' })
+    
+    // Check if we have changes to sync
+    const allChanges = [...changes, ...polling.changes]
+    if (allChanges.length === 0) {
+      toast({ title: 'No changes detected', description: 'Please detect changes first.', variant: 'destructive' })
+      return
     }
+    
+    uploadFlow.startConfirmation()
+  }
+
+  const handleConfirmSync = async () => {
+    const currentData = activeTab === 'csv' ? csvData : sheetData
+    const allChanges = [...changes, ...polling.changes]
+
+    await uploadFlow.confirmChanges(async () => {
+      try {
+        const response = await fetch('/api/import/sync-to-hubspot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: user?.id, 
+            contentType, 
+            importData: currentData, // Keep for fallback
+            changes: allChanges // Send the specific changes to sync
+          }),
+        })
+        if (response.ok) {
+          const data = await response.json()
+          uploadFlow.completeUpload(data.synced || 0, data.failed || 0)
+          polling.clearChanges()
+          setChanges([])
+          setSelectedChangedRows([])
+          onImportComplete?.(currentData)
+        } else {
+          throw new Error('Sync failed')
+        }
+      } catch (error) {
+        uploadFlow.completeUpload(0, allChanges.length)
+        toast({ title: 'Sync Failed', description: 'Failed to sync data to HubSpot', variant: 'destructive' })
+      }
+    })
   }
 
   // --- Derived State and Data Processing ---
@@ -308,6 +317,9 @@ export const useImportManager = ({
     allChanges,
     flattenedChanges,
     groupedChangesArray,
+    // Upload Flow
+    uploadFlow,
+    handleConfirmSync,
     // Refs
     fileInputRef,
     // Handlers
