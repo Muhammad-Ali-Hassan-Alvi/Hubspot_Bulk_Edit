@@ -87,7 +87,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No database backup found to compare against. Please export your data first.',
+          error: 'No database backup found to compare against. Please create a backup first by going to the Backup section and exporting your HubSpot pages data.',
+          action: 'create_backup',
+          details: 'You need to export your HubSpot pages data to create a baseline for change detection.'
         },
         { status: 404 }
       )
