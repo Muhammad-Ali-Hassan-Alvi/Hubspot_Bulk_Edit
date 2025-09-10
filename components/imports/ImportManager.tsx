@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, FileSpreadsheet, Download, CheckCircle, Loader2 } from 'lucide-react'
 import DataTable from '@/components/pages/components/DataTable'
+import SheetAndTabSelector from './SheetAndTabSelector'
 
 // This small component can stay here as it's only used in this file
 const ImportingDataLoader = ({ progress, message }: { progress: number; message: string }) => {
@@ -57,6 +58,8 @@ export default function ImportManager({
     syncProgress,
     importProgress,
     selectedChangedRows,
+    user,
+    userSettings,
     currentData,
     hasData,
     hasChanges,
@@ -72,6 +75,7 @@ export default function ImportManager({
     syncToHubSpot,
     setSelectedChangedRows,
   } = useImportManager({ contentType, onImportComplete })
+
 
   // --- Display columns and headers can stay here as they are UI-specific ---
   const displayColumns = ['pageName', 'pageId', 'field', 'oldValue', 'newValue']
@@ -145,60 +149,21 @@ export default function ImportManager({
           </TabsContent>
 
           <TabsContent value="gsheet" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Sheet</label>
-                <Select
-                  value={selectedSheet}
-                  onValueChange={handleSheetChange}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={isLoading ? 'Loading sheets...' : 'Choose a Google Sheet'}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!sheets.length && !isLoading ? (
-                      <SelectItem value="no-sheets" disabled>
-                        No sheets found. Connect Google Sheets first.
-                      </SelectItem>
-                    ) : (
-                      sheets.map(sheet => (
-                        <SelectItem key={sheet.id} value={sheet.id}>
-                          {sheet.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Tab</label>
-                <Select
-                  value={selectedTab}
-                  onValueChange={handleTabChange}
-                  disabled={!selectedSheet}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a tab" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sheets
-                      .find(s => s.id === selectedSheet)
-                      ?.tabs?.map(tab => (
-                        <SelectItem key={tab.id} value={tab.name}>
-                          {tab.name}
-                        </SelectItem>
-                      )) || (
-                      <SelectItem value="no-tabs" disabled>
-                        No tabs found
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            {user && (
+              <SheetAndTabSelector
+                user={user}
+                userSettings={userSettings}
+                selectedSheetId={selectedSheet}
+                setSelectedSheetId={handleSheetChange}
+                selectedTabName={selectedTab}
+                setSelectedTabName={handleTabChange}
+                showNewOptions={false}
+                onSheetChange={handleSheetChange}
+                onTabChange={handleTabChange}
+                sheets={sheets}
+                isLoadingSheets={isLoading}
+              />
+            )}
 
             {importProgress.active ? (
               <div className="mt-4">
@@ -226,7 +191,7 @@ export default function ImportManager({
                           <Badge variant="outline">
                             {groupedChangesArray.length} pages with changes
                           </Badge>
-                          <Badge variant="secondary">{allChanges.length} field changes</Badge>
+                          <Badge variant="secondary">{flattenedChanges.length} field changes</Badge>
                         </div>
                       )}
                       <div className="flex gap-2 ml-auto">

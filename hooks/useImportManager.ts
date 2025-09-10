@@ -1,8 +1,9 @@
+
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
-import { useUser } from '@/hooks/useUserSettings'
+import { useUser, useUserSettings } from '@/hooks/useUserSettings'
 import { useSheetPolling } from '@/hooks/useSheetPolling'
 
 // --- ➕ Keep your type definitions here, as they relate to the data logic ---
@@ -53,6 +54,8 @@ export const useImportManager = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { user } = useUser()
+  const { userSettings } = useUserSettings()
+  
 
   const polling = useSheetPolling({
     sheetId: selectedSheet,
@@ -259,13 +262,15 @@ export const useImportManager = ({
     const pageId = change.pageId
     if (!acc[pageId]) acc[pageId] = { pageId, pageName: change.name || change.pageName || pageId, changes: [] }
     if (change.fields) {
-      Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => acc[pageId].changes.push({ field: fieldData.header || fieldName, oldValue: fieldData.old, newValue: fieldData.new }))
+      Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => {
+        acc[pageId].changes.push({ field: fieldData.header || fieldName, oldValue: fieldData.old, newValue: fieldData.new })
+      })
     } else {
       acc[pageId].changes.push({ field: change.header || change.field, oldValue: change.oldValue, newValue: change.newValue })
     }
     return acc
-  }, {} as any)).flatMap((pageChange: any) =>
-    pageChange.changes.map((change: any) => ({
+  }, {} as any)).flatMap((pageChange: any) => {
+    return pageChange.changes.map((change: any) => ({
       id: `${pageChange.pageId}_${change.field}`,
       pageName: pageChange.pageName,
       pageId: pageChange.pageId,
@@ -273,7 +278,7 @@ export const useImportManager = ({
       oldValue: renderChangeValue(change.oldValue),
       newValue: renderChangeValue(change.newValue),
     }))
-  )
+  })
   
   const groupedChangesArray = Object.values(flattenedChanges.reduce((acc, item) => {
       if (!acc[item.pageId]) acc[item.pageId] = { ...item, changes: [] };
@@ -294,6 +299,8 @@ export const useImportManager = ({
     syncProgress,
     importProgress,
     selectedChangedRows,
+    user,
+    userSettings,
     // Derived Data
     currentData,
     hasData,
