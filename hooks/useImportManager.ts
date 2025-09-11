@@ -42,6 +42,7 @@ export const useImportManager = ({
   const [selectedTab, setSelectedTab] = useState<string>('')
   const [sheetData, setSheetData] = useState<ImportData[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingTabs, setIsLoadingTabs] = useState(false)
   const [isSyncing] = useState(false)
   const [syncProgress] = useState(0)
   const [changes, setChanges] = useState<any[]>([])
@@ -134,7 +135,7 @@ export const useImportManager = ({
     setSheetData([])
     setChanges([])
     if (!sheetId) return
-    setIsLoading(true)
+    setIsLoadingTabs(true)
     try {
       const response = await fetch(`/api/google/sheets/${sheetId}/tabs`)
       if (response.ok) {
@@ -144,7 +145,7 @@ export const useImportManager = ({
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to fetch sheet tabs', variant: 'destructive' })
     } finally {
-      setIsLoading(false)
+      setIsLoadingTabs(false)
     }
   }
 
@@ -304,6 +305,7 @@ export const useImportManager = ({
     selectedTab,
     sheetData,
     isLoading,
+    isLoadingTabs,
     isSyncing,
     syncProgress,
     importProgress,

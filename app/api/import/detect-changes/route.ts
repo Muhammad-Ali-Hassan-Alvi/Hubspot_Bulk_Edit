@@ -197,7 +197,9 @@ export async function POST(request: NextRequest) {
       for (const header in fieldsToCompare) {
         const dbField = fieldsToCompare[header]
         const sheetValue = sheetRow[header]
-        const dbValue = (dbPage as any)[dbField]
+        
+        // Get the value from page_content JSONB field, not direct database columns
+        const dbValue = dbPage.page_content?.[dbField] || (dbPage as any)[dbField]
 
         // Skip comparison if the database field doesn't exist (undefined) or is null - this prevents
         // false positives where the page_snapshots table doesn't have all fields

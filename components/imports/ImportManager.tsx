@@ -24,16 +24,16 @@ import UploadResultsModal from '@/components/modals/UploadResultsModal'
 // This small component can stay here as it's only used in this file
 const ImportingDataLoader = ({ progress, message }: { progress: number; message: string }) => {
   return (
-    <div className="w-full p-4 border rounded-lg bg-white shadow-sm">
+    <div className="w-full p-4 border rounded-lg bg-background shadow-sm">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <div>
-            <p className="font-medium text-gray-800">Importing Data</p>
-            <p className="text-sm text-gray-500">{message}</p>
+            <p className="font-medium text-foreground">Importing Data</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
           </div>
         </div>
-        <span className="text-sm font-semibold text-blue-600">{progress}%</span>
+        <span className="text-sm font-semibold text-primary">{progress}%</span>
       </div>
       <Progress value={progress} className="w-full h-2" />
     </div>
@@ -57,6 +57,7 @@ export default function ImportManager({
     selectedTab,
     sheetData,
     isLoading,
+    isLoadingTabs,
     isSyncing,
     syncProgress,
     importProgress,
@@ -167,6 +168,7 @@ export default function ImportManager({
                 onTabChange={handleTabChange}
                 sheets={sheets}
                 isLoadingSheets={isLoading}
+                isLoadingTabs={isLoadingTabs}
               />
             )}
 

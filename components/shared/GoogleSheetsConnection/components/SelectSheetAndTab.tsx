@@ -215,6 +215,8 @@ const SelectSheetAndTab = ({
     setSelectedTabId('')
     setTabName('')
     if (sheetId) {
+      // Show loading state while fetching tabs
+      setFetchingTabs(true)
       await loadTabs(sheetId)
     } else {
       setTabs([])
@@ -373,7 +375,7 @@ const SelectSheetAndTab = ({
               <Select
                 value={selectedSheetId}
                 onValueChange={handleSheetSelectionWithModal}
-                disabled={fetchingTabs || fetchingSheets}
+                disabled={fetchingSheets}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
@@ -397,7 +399,12 @@ const SelectSheetAndTab = ({
                   ) : (
                     sheets.map(sheet => (
                       <SelectItem key={sheet.id} value={sheet.id}>
-                        {sheet.name}
+                        <div className="flex items-center gap-2">
+                          {sheet.name}
+                          {fetchingTabs && selectedSheetId === sheet.id && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                        </div>
                       </SelectItem>
                     ))
                   )}

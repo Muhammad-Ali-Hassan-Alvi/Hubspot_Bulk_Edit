@@ -48,6 +48,7 @@ interface SheetAndTabSelectorProps {
   onTabChange?: (tabName: string) => void
   sheets?: GoogleSheet[] // Pass sheets data from parent
   isLoadingSheets?: boolean // Pass loading state from parent
+  isLoadingTabs?: boolean // Pass tab loading state from parent
 }
 
 const SheetAndTabSelector = ({
@@ -62,6 +63,7 @@ const SheetAndTabSelector = ({
   onTabChange,
   sheets: parentSheets,
   isLoadingSheets: parentIsLoadingSheets,
+  isLoadingTabs: parentIsLoadingTabs,
 }: SheetAndTabSelectorProps) => {
   const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false)
   const [sheets, setSheets] = useState<GoogleSheet[]>([])
@@ -74,6 +76,7 @@ const SheetAndTabSelector = ({
   // Use parent sheets data if available, otherwise use local state
   const displaySheets = parentSheets || sheets
   const isLoadingSheets = parentIsLoadingSheets !== undefined ? parentIsLoadingSheets : fetchingSheets
+  const isLoadingTabs = parentIsLoadingTabs !== undefined ? parentIsLoadingTabs : fetchingTabs
   const [saving, setSaving] = useState(false)
   const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false)
 
@@ -143,6 +146,8 @@ const SheetAndTabSelector = ({
     setSelectedSheetId(sheetId)
     setSelectedTabName('')
     if (sheetId) {
+      // Show loading state while fetching tabs
+      setFetchingTabs(true)
       await loadTabs(sheetId)
     } else {
       setTabs([])
@@ -286,7 +291,7 @@ const SheetAndTabSelector = ({
               <Select
                 value={selectedSheetId}
                 onValueChange={handleSheetSelectionWithModal}
-                disabled={fetchingTabs || isLoadingSheets}
+                disabled={isLoadingSheets}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
@@ -312,7 +317,12 @@ const SheetAndTabSelector = ({
                   ) : (
                     displaySheets.map(sheet => (
                       <SelectItem key={sheet.id} value={sheet.id}>
-                        {sheet.name}
+                        <div className="flex items-center gap-2">
+                          {sheet.name}
+                          {isLoadingTabs && selectedSheetId === sheet.id && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
+                        </div>
                       </SelectItem>
                     ))
                   )}
@@ -325,10 +335,10 @@ const SheetAndTabSelector = ({
               <Select
                 value={selectedTabName}
                 onValueChange={handleTabSelectionWithModal}
-                disabled={fetchingTabs || !selectedSheetId}
+                disabled={isLoadingTabs || !selectedSheetId}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder={fetchingTabs ? 'Loading tabs...' : 'Choose a tab...'} />
+                  <SelectValue placeholder={isLoadingTabs ? 'Loading tabs...' : 'Choose a tab...'} />
                 </SelectTrigger>
                 <SelectContent>
                   {showNewOptions && (
@@ -339,7 +349,7 @@ const SheetAndTabSelector = ({
                       </div>
                     </SelectItem>
                   )}
-                  {fetchingTabs ? (
+                  {isLoadingTabs ? (
                     <SelectItem value="loading" disabled>
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-3 w-3 animate-spin" />
