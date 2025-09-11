@@ -141,13 +141,25 @@ export async function POST(request: NextRequest) {
     console.log('Sheet headers:', Object.keys(importData[0]))
     console.log('Sample sheet row:', importData[0])
     console.log('Field mapping:', fieldsToCompare)
+    
+    // Debug: Check if we have any pages with matching IDs
+    const csvPageIds = importData.map(row => row['Id']).filter(id => id)
+    const dbPageIds = dbBackupData.map(row => row.hubspot_page_id)
+    const matchingIds = csvPageIds.filter(id => dbPageIds.includes(String(id)))
+    console.log('CSV Page IDs (first 5):', csvPageIds.slice(0, 5))
+    console.log('DB Page IDs (first 5):', dbPageIds.slice(0, 5))
+    console.log('Matching IDs count:', matchingIds.length)
+    console.log('Matching IDs (first 5):', matchingIds.slice(0, 5))
 
     const changes = []
 
     for (const sheetRow of importData) {
       // HubSpot uses 'Id' from the export, but the DB column is hubspot_page_id
       const pageId = sheetRow['Id']
-      if (!pageId) continue
+      if (!pageId) {
+        console.log('Skipping row - no Id field found:', Object.keys(sheetRow))
+        continue
+      }
 
       const dbPage = dbDataMap.get(String(pageId))
       if (!dbPage) {

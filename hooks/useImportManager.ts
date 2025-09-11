@@ -27,12 +27,14 @@ interface SheetInfo {
 interface ImportManagerProps {
   contentType?: string
   onImportComplete?: (data: ImportData[]) => void
+  onContentTypeChange?: (contentType: string) => void
 }
 
 // --- 👇 This is our new hook! ---
 export const useImportManager = ({
   contentType = 'pages',
   onImportComplete,
+  onContentTypeChange,
 }: ImportManagerProps) => {
   const [activeTab, setActiveTab] = useState<'csv' | 'gsheet'>('gsheet')
   const [, setCsvFile] = useState<File | null>(null)
@@ -52,6 +54,13 @@ export const useImportManager = ({
     progress: 0,
     message: '',
   })
+  const [validationError, setValidationError] = useState<string>('')
+  const [isValidating, setIsValidating] = useState(false)
+  
+  // Clear validation errors when content type changes
+  useEffect(() => {
+    setValidationError('')
+  }, [contentType])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -118,15 +127,166 @@ export const useImportManager = ({
     reader.readAsText(file)
   }
 
-  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const parseCsvFileData = (file: File): Promise<ImportData[]> => {
+    return new Promise((resolve, reject) => {
+      // Check if it's an Excel file
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        // For Excel files, we need to use a different approach
+        // For now, show an error message
+        reject(new Error('Excel files (.xlsx/.xls) are not supported yet. Please convert to CSV format.'))
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = e => {
+        const text = e.target?.result as string
+        
+        // Check if the content looks like binary data (Excel file)
+        if (text.includes('\x00') || text.startsWith('PK\x03\x04')) {
+          reject(new Error('This appears to be an Excel file. Please convert to CSV format or use a proper CSV file.'))
+          return
+        }
+        
+        const lines = text.split('\n')
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+        const data = lines.slice(1).filter(line => line.trim()).map((line, index) => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+          const row: ImportData = { id: `csv_${index}` }
+          headers.forEach((header, i) => { row[header] = values[i] || '' })
+          return row
+        })
+        
+        // Debug: Log CSV parsing results
+        console.log('=== CSV PARSING DEBUG ===')
+        console.log('CSV Headers:', headers)
+        console.log('CSV Data Length:', data.length)
+        console.log('Sample CSV Row:', data[0])
+        
+        resolve(data)
+      }
+      reader.readAsText(file)
+    })
+  }
+
+  const validateImport = async (importType: 'csv' | 'gsheet', fileName?: string, sheetId?: string, tabId?: string) => {
+    if (!user?.id) return { isValid: false, error: 'User not authenticated' }
+    
+    setIsValidating(true)
+    setValidationError('')
+    
+    try {
+      const response = await fetch('/api/import/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          contentType,
+          importType,
+          fileName,
+          sheetId,
+          tabId
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.validation) {
+          if (data.validation.isValid) {
+            setValidationError('')
+            return { isValid: true, exportDetails: data.validation.exportDetails }
+          } else {
+            setValidationError(data.validation.error)
+            return { isValid: false, error: data.validation.error }
+          }
+        }
+      }
+      
+      const errorData = await response.json()
+      setValidationError(errorData.error || 'Validation failed')
+      return { isValid: false, error: errorData.error || 'Validation failed' }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Validation failed'
+      setValidationError(errorMessage)
+      return { isValid: false, error: errorMessage }
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    if (!file.name.endsWith('.csv')) {
-      toast({ title: 'Invalid File', description: 'Please select a CSV file', variant: 'destructive' })
+    
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
+      toast({ title: 'Invalid File', description: 'Please select a CSV or Excel file', variant: 'destructive' })
       return
     }
-    setCsvFile(file)
-    parseCsvFile(file)
+    
+    // Start import progress
+    setImportProgress({
+      active: true,
+      progress: 0,
+      message: 'Validating CSV file...'
+    })
+    
+    try {
+      // Validate the file first
+      const validation = await validateImport('csv', file.name)
+      if (!validation.isValid) {
+        setImportProgress({ active: false, progress: 0, message: '' })
+        toast({ 
+          title: 'Validation Failed', 
+          description: validation.error, 
+          variant: 'destructive' 
+        })
+        return
+      }
+      
+      setImportProgress({
+        active: true,
+        progress: 50,
+        message: 'Processing CSV data...'
+      })
+      
+      setCsvFile(file)
+      parseCsvFile(file)
+      
+      setImportProgress({
+        active: true,
+        progress: 100,
+        message: 'CSV file loaded successfully'
+      })
+      
+      // Auto-detect changes after successful validation
+      setTimeout(async () => {
+        setImportProgress({ active: false, progress: 0, message: '' })
+        // Auto-detect changes after CSV is loaded - use the parsed data directly
+        try {
+          const parsedData = await parseCsvFileData(file)
+          if (parsedData && parsedData.length > 0) {
+            await detectChanges(parsedData, 'csv', 'csv-file')
+          }
+        } catch (error) {
+          toast({ 
+            title: 'File Format Error', 
+            description: error instanceof Error ? error.message : 'Invalid file format', 
+            variant: 'destructive' 
+          })
+        }
+      }, 1000)
+      
+      toast({ 
+        title: 'File Validated', 
+        description: `File validated for ${contentType} content type` 
+      })
+    } catch (error) {
+      setImportProgress({ active: false, progress: 0, message: '' })
+      toast({ 
+        title: 'Upload Failed', 
+        description: 'Failed to process CSV file', 
+        variant: 'destructive' 
+      })
+    }
   }
 
   const handleSheetChange = async (sheetId: string) => {
@@ -150,17 +310,55 @@ export const useImportManager = ({
   }
 
   const detectChanges = async (importData: ImportData[], sheetId: string, tabName: string) => {
-    if (!user?.id || importData.length === 0 || !sheetId || !tabName) return
+    if (!user?.id || importData.length === 0) return
+    
+    // For CSV, we need to provide valid sheetId and tabName for the API
+    const apiSheetId = sheetId === 'csv' ? 'csv-import' : sheetId
+    const apiTabName = tabName === 'csv-file' ? 'csv-data' : tabName
+    
+    // Debug: Log the data being sent for CSV
+    if (sheetId === 'csv') {
+      console.log('=== CSV DETECT CHANGES DEBUG ===')
+      console.log('Import Data Length:', importData.length)
+      console.log('Sample CSV Row:', importData[0])
+      console.log('CSV Headers:', Object.keys(importData[0]))
+      console.log('Content Type:', contentType)
+    }
+    
     setIsLoading(true)
     try {
       const response = await fetch('/api/import/detect-changes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, contentType, importData, sheetId, tabName }),
+        body: JSON.stringify({ 
+          userId: user.id, 
+          contentType, 
+          importData, 
+          sheetId: apiSheetId, 
+          tabName: apiTabName 
+        }),
       })
       if (response.ok) {
         const data = await response.json()
         setChanges(data.changes || [])
+        if (data.changes && data.changes.length > 0) {
+          toast({ 
+            title: 'Changes Detected', 
+            description: `Found ${data.changes.length} changes to sync` 
+          })
+        } else {
+          toast({ 
+            title: 'No Changes', 
+            description: 'No changes detected between CSV and HubSpot data' 
+          })
+        }
+      } else {
+        const errorData = await response.json()
+        toast({ 
+          title: 'Error', 
+          description: errorData.error || 'Failed to detect changes', 
+          variant: 'destructive' 
+        })
       }
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to detect changes', variant: 'destructive' })
@@ -174,25 +372,42 @@ export const useImportManager = ({
     setSheetData([])
     setChanges([])
     if (!selectedSheet || !tabName) return
-    setImportProgress({ active: true, progress: 0, message: 'Initiating connection...' })
+    
+    // Validate the sheet/tab combination first
+    setImportProgress({ active: true, progress: 0, message: 'Validating import...' })
+    const validation = await validateImport('gsheet', undefined, selectedSheet, tabName)
+    if (!validation.isValid) {
+      setImportProgress({ active: false, progress: 0, message: '' })
+      toast({ 
+        title: 'Validation Failed', 
+        description: validation.error, 
+        variant: 'destructive' 
+      })
+      return
+    }
+    
+    setImportProgress({ active: true, progress: 25, message: 'Validation passed, fetching data...' })
     try {
-      setTimeout(() => setImportProgress(p => ({ ...p, progress: 25, message: 'Reading structure...' })), 100)
+      setTimeout(() => setImportProgress(p => ({ ...p, progress: 50, message: 'Reading structure...' })), 100)
       const response = await fetch(`/api/google/sheets/${selectedSheet}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tabName }),
       })
-      setTimeout(() => setImportProgress(p => ({ ...p, progress: 50, message: 'Fetching rows...' })), 500)
+      setTimeout(() => setImportProgress(p => ({ ...p, progress: 75, message: 'Fetching rows...' })), 500)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
           setSheetData(data.rows || [])
-          setTimeout(() => setImportProgress(p => ({ ...p, progress: 75, message: 'Detecting changes...' })), 1000)
+          setTimeout(() => setImportProgress(p => ({ ...p, progress: 90, message: 'Detecting changes...' })), 1000)
           if (data.rows?.length > 0) {
             await detectChanges(data.rows, selectedSheet, tabName)
           }
           setImportProgress({ active: true, progress: 100, message: 'Done!' })
-          toast({ title: 'Sheet Data Loaded', description: `${data.rows?.length || 0} rows imported` })
+          toast({ 
+            title: 'Sheet Data Loaded', 
+            description: `${data.rows?.length || 0} rows imported and validated for ${contentType}` 
+          })
         } else { throw new Error(data.error || 'Failed to fetch sheet data') }
       } else { throw new Error(`HTTP ${response.status}: ${response.statusText}`) }
     } catch (error) {
@@ -296,6 +511,13 @@ export const useImportManager = ({
       return acc;
   }, {} as any));
 
+  const resetCsvData = () => {
+    setCsvData([])
+    setValidationError('')
+    setChanges([])
+    setSelectedChangedRows([])
+  }
+
   // --- 👇 Return everything the component needs ---
   return {
     // State
@@ -310,6 +532,8 @@ export const useImportManager = ({
     syncProgress,
     importProgress,
     selectedChangedRows,
+    validationError,
+    isValidating,
     user,
     userSettings,
     // Derived Data
@@ -332,5 +556,6 @@ export const useImportManager = ({
     detectChanges,
     syncToHubSpot,
     setSelectedChangedRows,
+    resetCsvData,
   }
 }
