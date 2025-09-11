@@ -312,6 +312,9 @@ export const useImportManager = ({
   const detectChanges = async (importData: ImportData[], sheetId: string, tabName: string) => {
     if (!user?.id || importData.length === 0) return
     
+    // Determine import type based on sheetId
+    const importType = sheetId === 'csv' ? 'csv' : 'sheets'
+    
     // For CSV, we need to provide valid sheetId and tabName for the API
     const apiSheetId = sheetId === 'csv' ? 'csv-import' : sheetId
     const apiTabName = tabName === 'csv-file' ? 'csv-data' : tabName
@@ -335,7 +338,8 @@ export const useImportManager = ({
           contentType, 
           importData, 
           sheetId: apiSheetId, 
-          tabName: apiTabName 
+          tabName: apiTabName,
+          importType
         }),
       })
       if (response.ok) {

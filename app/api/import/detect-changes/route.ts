@@ -52,18 +52,24 @@ const normalizeForComparison = (value: any): string => {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, importData, sheetId, tabName } = await request.json()
+    const { userId, importData, sheetId, tabName, importType = 'sheets' } = await request.json()
 
     if (
       !userId ||
       !importData ||
       !Array.isArray(importData) ||
-      !sheetId ||
-      !tabName ||
       importData.length === 0
     ) {
       return NextResponse.json(
         { success: false, error: 'Missing or empty required fields.' },
+        { status: 400 }
+      )
+    }
+
+    // For Google Sheets, sheetId and tabName are required
+    if (importType === 'sheets' && (!sheetId || !tabName)) {
+      return NextResponse.json(
+        { success: false, error: 'Missing sheetId or tabName for Google Sheets import.' },
         { status: 400 }
       )
     }
@@ -75,19 +81,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the latest backup to compare against
-    const { data: latestBackupRun, error: backupIdError } = await supabase
+    let query = supabase
       .from('page_snapshots')
       .select('backup_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+
+    // For CSV imports, look for CSV backups; for sheets, look for sheet backups
+    if (importType === 'csv') {
+      query = query.like('backup_id', 'csv_%')
+    } else {
+      query = query.not('backup_id', 'like', 'csv_%')
+    }
+
+    const { data: latestBackupRun, error: backupIdError } = await query.single()
 
     if (backupIdError || !latestBackupRun) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No database backup found to compare against. Please export your data first.',
+          error: `No database backup found to compare against. Please export your data first using ${importType === 'csv' ? 'CSV export' : 'Google Sheets export'}.`,
         },
         { status: 404 }
       )
@@ -136,28 +150,29 @@ export async function POST(request: NextRequest) {
 
     // Debug: Log the data we're working with
     console.log('=== DEBUG INFO ===')
+    console.log('Import type:', importType)
     console.log('Total snapshot records found:', dbBackupData.length)
     console.log('Sample snapshot record:', dbBackupData[0])
-    console.log('Sheet headers:', Object.keys(importData[0]))
-    console.log('Sample sheet row:', importData[0])
+    console.log('Import headers:', Object.keys(importData[0]))
+    console.log('Sample import row:', importData[0])
     console.log('Field mapping:', fieldsToCompare)
     
     // Debug: Check if we have any pages with matching IDs
-    const csvPageIds = importData.map(row => row['Id']).filter(id => id)
+    const importPageIds = importData.map(row => row['Id']).filter(id => id)
     const dbPageIds = dbBackupData.map(row => row.hubspot_page_id)
-    const matchingIds = csvPageIds.filter(id => dbPageIds.includes(String(id)))
-    console.log('CSV Page IDs (first 5):', csvPageIds.slice(0, 5))
+    const matchingIds = importPageIds.filter(id => dbPageIds.includes(String(id)))
+    console.log('Import Page IDs (first 5):', importPageIds.slice(0, 5))
     console.log('DB Page IDs (first 5):', dbPageIds.slice(0, 5))
     console.log('Matching IDs count:', matchingIds.length)
     console.log('Matching IDs (first 5):', matchingIds.slice(0, 5))
 
     const changes = []
 
-    for (const sheetRow of importData) {
+    for (const importRow of importData) {
       // HubSpot uses 'Id' from the export, but the DB column is hubspot_page_id
-      const pageId = sheetRow['Id']
+      const pageId = importRow['Id']
       if (!pageId) {
-        console.log('Skipping row - no Id field found:', Object.keys(sheetRow))
+        console.log('Skipping row - no Id field found:', Object.keys(importRow))
         continue
       }
 
@@ -170,14 +185,14 @@ export async function POST(request: NextRequest) {
         
         for (const header in fieldsToCompare) {
           const dbField = fieldsToCompare[header]
-          const sheetValue = sheetRow[header]
+          const importValue = importRow[header]
           
           // Skip empty values for new pages
-          if (isEmptyOrNA(sheetValue)) continue
+          if (isEmptyOrNA(importValue)) continue
           
           newPageChanges[dbField] = {
             old: null, // No old value since it's a new page
-            new: sheetValue,
+            new: importValue,
             header: header,
             dbField: dbField,
           }
@@ -187,7 +202,7 @@ export async function POST(request: NextRequest) {
         if (hasChanges) {
           changes.push({
             pageId: pageId,
-            name: sheetRow['Name'] || `Page ${pageId}`,
+            name: importRow['Name'] || `Page ${pageId}`,
             type: 'new',
             fields: newPageChanges,
           })
@@ -198,7 +213,7 @@ export async function POST(request: NextRequest) {
       // Debug: Log specific page we're checking
       if (pageId === '221892034283' || pageId === '231355241185') {
         console.log(`=== CHECKING PAGE ${pageId} ===`)
-        console.log('Sheet data:', sheetRow)
+        console.log('Import data:', importRow)
         console.log('DB snapshot data:', dbPage)
       }
 
@@ -208,7 +223,7 @@ export async function POST(request: NextRequest) {
       // Compare each dynamically mapped field
       for (const header in fieldsToCompare) {
         const dbField = fieldsToCompare[header]
-        const sheetValue = sheetRow[header]
+        const importValue = importRow[header]
         
         // Get the value from page_content JSONB field, not direct database columns
         const dbValue = dbPage.page_content?.[dbField] || (dbPage as any)[dbField]
@@ -225,46 +240,46 @@ export async function POST(request: NextRequest) {
         // Debug: Log field comparison for our specific page
         if (pageId === '221892034283' && (header === 'Name' || header === 'Html Title')) {
           console.log(`Field: ${header} -> DB Field: ${dbField}`)
-          console.log(`Sheet value: "${sheetValue}"`)
+          console.log(`Import value: "${importValue}"`)
           console.log(`DB value: "${dbValue}"`)
           console.log(`Is DB empty: ${isEmptyOrNA(dbValue)}`)
-          console.log(`Is Sheet empty: ${isEmptyOrNA(sheetValue)}`)
+          console.log(`Is Import empty: ${isEmptyOrNA(importValue)}`)
         }
 
         // Skip comparison only if BOTH values are empty - this allows detection of changes
-        // when database has empty values but sheet has data (like new DRAFT pages)
-        if (isEmptyOrNA(dbValue) && isEmptyOrNA(sheetValue)) {
+        // when database has empty values but import has data (like new DRAFT pages)
+        if (isEmptyOrNA(dbValue) && isEmptyOrNA(importValue)) {
           continue
         }
 
-        let normalizedSheetValue = normalizeForComparison(sheetValue)
+        let normalizedImportValue = normalizeForComparison(importValue)
         let normalizedDbValue = normalizeForComparison(dbValue)
 
         // Special handling for date formats - normalize timezone formats
         if (header === 'Archived At' || header === 'Publish Date') {
           // Normalize both values to the same timezone format
-          normalizedSheetValue = normalizedSheetValue.replace(/Z$/, '+00:00')
+          normalizedImportValue = normalizedImportValue.replace(/Z$/, '+00:00')
           normalizedDbValue = normalizedDbValue.replace(/Z$/, '+00:00')
         }
 
         // Special handling for HubSpot's state values - normalize to common categories
         if (header === 'Current State' || header === 'State') {
-          // Normalize sheet value
-          const sheetStateUpper = normalizedSheetValue.toUpperCase()
+          // Normalize import value
+          const importStateUpper = normalizedImportValue.toUpperCase()
           if (
-            sheetStateUpper === 'PUBLISHED_OR_SCHEDULED' ||
-            sheetStateUpper === 'PUBLISHED_AB' ||
-            sheetStateUpper === 'PUBLISHED_AB_VARIANT'
+            importStateUpper === 'PUBLISHED_OR_SCHEDULED' ||
+            importStateUpper === 'PUBLISHED_AB' ||
+            importStateUpper === 'PUBLISHED_AB_VARIANT'
           ) {
-            normalizedSheetValue = 'published'
+            normalizedImportValue = 'published'
           } else if (
-            sheetStateUpper === 'DRAFT_AB' ||
-            sheetStateUpper === 'DRAFT_AB_VARIANT' ||
-            sheetStateUpper === 'LOSER_AB_VARIANT'
+            importStateUpper === 'DRAFT_AB' ||
+            importStateUpper === 'DRAFT_AB_VARIANT' ||
+            importStateUpper === 'LOSER_AB_VARIANT'
           ) {
-            normalizedSheetValue = 'draft'
-          } else if (sheetStateUpper === 'SCHEDULED_AB') {
-            normalizedSheetValue = 'scheduled'
+            normalizedImportValue = 'draft'
+          } else if (importStateUpper === 'SCHEDULED_AB') {
+            normalizedImportValue = 'scheduled'
           }
 
           // Normalize database value
@@ -287,16 +302,16 @@ export async function POST(request: NextRequest) {
         }
 
         // Compare the normalized values
-        if (normalizedDbValue.toLowerCase() !== normalizedSheetValue.toLowerCase()) {
+        if (normalizedDbValue.toLowerCase() !== normalizedImportValue.toLowerCase()) {
           isModified = true
           modifiedFields[dbField] = {
             old: dbValue,
-            new: sheetValue,
+            new: importValue,
             header: header,
             dbField: dbField,
           }
           console.log(
-            `Change detected for page ${pageId}, field ${header}: db="${dbValue}" -> sheet="${sheetValue}"`
+            `Change detected for page ${pageId}, field ${header}: db="${dbValue}" -> import="${importValue}"`
           )
         }
       }
@@ -304,7 +319,7 @@ export async function POST(request: NextRequest) {
       if (isModified) {
         changes.push({
           pageId: pageId,
-          name: sheetRow['Name'] || dbPage.name,
+          name: importRow['Name'] || dbPage.name,
           type: 'modified',
           fields: modifiedFields,
         })
