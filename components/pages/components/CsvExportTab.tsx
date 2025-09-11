@@ -7,7 +7,7 @@ import { Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { saveAs } from 'file-saver'
 import ExportFieldsSelector from './common/ExportFieldsSelector'
-import { logExportActivity } from '@/lib/audit-logger'
+import { logExportActivityAction } from '@/app/actions/exportActions'
 import type { User } from '@supabase/supabase-js'
 
 interface CsvExportTabProps {
@@ -56,15 +56,24 @@ export default function CsvExportTab({
     saveAs(blob, filename)
     setIsExportModalOpen(false)
 
-    // Log the export activity
-    if (user) {
-      await logExportActivity(user.id, 'csv', {
+    // Log the export activity using server action
+    try {
+      console.log('Logging export activity via server action')
+      const result = await logExportActivityAction('csv', {
         content_type: contentType,
         items_count: dataToExport.length,
         columns_exported: columnsForExport,
         filename,
         file_size_bytes: blob.size,
       })
+      
+      if (result.success) {
+        console.log('Export activity logged successfully')
+      } else {
+        console.error('Failed to log export activity:', result.error)
+      }
+    } catch (error) {
+      console.error('Failed to log export activity:', error)
     }
 
     toast({

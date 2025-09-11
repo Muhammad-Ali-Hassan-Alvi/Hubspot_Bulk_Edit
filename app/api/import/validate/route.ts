@@ -127,12 +127,15 @@ export async function POST(request: NextRequest) {
         .eq('user_id', user.id)
         .eq('action_type', 'export_sheets')
         .eq('resource_type', 'export')
-        .contains('details', { 
-          content_type: contentType,
-          tab_name: tabId === '0' ? 'Default' : tabId
-        })
         .order('created_at', { ascending: false })
-        .limit(10) // Get recent exports
+        .limit(20) // Get recent exports
+
+      // Debug: Log Google Sheets validation
+      console.log('=== GOOGLE SHEETS VALIDATION DEBUG ===')
+      console.log('Sheet ID:', sheetId)
+      console.log('Tab ID:', tabId)
+      console.log('Selected Content Type:', contentType)
+      console.log('Export logs found:', exportLogs?.length || 0)
 
       if (logError) {
         console.error('Error checking export logs:', logError)
@@ -142,13 +145,41 @@ export async function POST(request: NextRequest) {
           exportDetails: null
         }
       } else if (exportLogs && exportLogs.length > 0) {
-        // Check if any of the recent exports match this sheet
+        // Check if any of the recent exports match this sheet and content type
         const matchingExport = exportLogs.find(log => {
           const details = log.details
-          return details && details.sheet_url && details.sheet_url.includes(sheetId)
+          if (!details || !details.sheet_url) return false
+          
+          // Check if sheet URL contains the sheetId
+          const sheetMatches = details.sheet_url.includes(sheetId)
+          
+          // Check if content type matches
+          const exportedContentType = details.content_type
+          
+          // Handle both label format (e.g., "Landing Pages") and value format (e.g., "landing-pages")
+          const normalizeContentType = (type: string) => {
+            return type.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+          }
+          
+          const normalizedExportedType = normalizeContentType(exportedContentType)
+          const normalizedSelectedType = normalizeContentType(contentType)
+          const contentTypeMatches = normalizedExportedType === normalizedSelectedType
+          
+          console.log('Checking export log:', {
+            sheetUrl: details.sheet_url,
+            sheetMatches,
+            exportedContentType,
+            selectedContentType: contentType,
+            normalizedExportedType,
+            normalizedSelectedType,
+            contentTypeMatches
+          })
+          
+          return sheetMatches && contentTypeMatches
         })
 
         if (matchingExport) {
+          console.log('Found matching export:', matchingExport.details)
           validationResult = {
             isValid: true,
             error: '',
@@ -162,10 +193,25 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          validationResult = {
-            isValid: false,
-            error: `No export found for "${contentType}" content type in the selected sheet/tab combination. Please export data first or select the correct sheet/tab.`,
-            exportDetails: null
+          // Check if there are exports for this sheet but with different content type
+          const sheetExports = exportLogs.filter(log => {
+            const details = log.details
+            return details && details.sheet_url && details.sheet_url.includes(sheetId)
+          })
+          
+          if (sheetExports.length > 0) {
+            const exportedContentTypes = sheetExports.map(log => log.details.content_type).join(', ')
+            validationResult = {
+              isValid: false,
+              error: `Content type mismatch. This sheet was exported for "${exportedContentTypes}" but you selected "${contentType}". Please select the correct content type or export data with the selected content type.`,
+              exportDetails: null
+            }
+          } else {
+            validationResult = {
+              isValid: false,
+              error: `No export found for this sheet/tab combination. Please export data first or select the correct sheet/tab.`,
+              exportDetails: null
+            }
           }
         }
       } else {

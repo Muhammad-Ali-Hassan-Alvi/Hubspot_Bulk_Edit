@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import ExportFieldsSelector from './common/ExportFieldsSelector'
 import type { User } from '@supabase/supabase-js'
 import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
-import { logExportActivity } from '@/lib/audit-logger'
+import { logExportActivityAction } from '@/app/actions/exportActions'
 
 interface GSheetsExportTabProps {
   availableColumns: { key: string; label: string }[]
@@ -92,7 +92,7 @@ export default function GSheetsExportTab({
         })
         setExportSuccessUrl(result.url)
 
-        await logExportActivity(user.id, 'sheets', {
+        const logResult = await logExportActivityAction('sheets', {
           content_type: contentType,
           items_count: dataToExport.length,
           columns_exported: [], // 👈 pass empty array so columns_exported is skipped
@@ -100,6 +100,10 @@ export default function GSheetsExportTab({
           sheet_url: `https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`,
           sheet_name: `[${selectedSheetName}](${`https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`})`, // markdown clickable
         })
+        
+        if (!logResult.success) {
+          console.error('Failed to log export activity:', logResult.error)
+        }
         // Reset sheet and tab selection after successful export
         setSelectedSheetId('')
         setSelectedTabId('')
