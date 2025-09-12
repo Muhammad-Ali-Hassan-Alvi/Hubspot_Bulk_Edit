@@ -4,16 +4,10 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { TabsContent } from '@/components/ui/tabs'
 import { DialogFooter } from '@/components/ui/dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { FileSpreadsheet, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react'
+import { FileSpreadsheet, ExternalLink, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import ExportFieldsSelector from './common/ExportFieldsSelector'
+import WarningModal from '@/components/modals/WarningModal'
 import type { User } from '@supabase/supabase-js'
 import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
 import { logExportActivityAction } from '@/app/actions/exportActions'
@@ -256,26 +250,15 @@ export default function GSheetsExportTab({
         </Button>
       </DialogFooter>
 
-      <Dialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              Warning
-            </DialogTitle>
-            <DialogDescription>
-              Exporting data to Google Sheets will overwrite the existing data in the selected tab.
-              This action cannot be undone. Are you sure you want to proceed?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelExport}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmExport}>Confirm Export</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WarningModal
+        isOpen={showWarningDialog}
+        onClose={handleCancelExport}
+        onConfirm={handleConfirmExport}
+        title="Google Sheets Export Warning"
+        description="Exporting data to Google Sheets will overwrite the existing data in the selected tab. This action cannot be undone. Are you sure you want to proceed?"
+        confirmText="Confirm Export"
+        cancelText="Cancel"
+      />
     </TabsContent>
   )
 }
