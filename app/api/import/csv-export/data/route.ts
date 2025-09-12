@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const user = await getAuthenticatedUser()
 
     // Parse CSV content
-    const lines = csvContent.split('\n').filter(line => line.trim())
+    const lines = csvContent.split('\n').filter((line: string) => line.trim())
     if (lines.length === 0) {
       return NextResponse.json({
         success: true,
@@ -26,13 +26,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse headers (first line)
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-    
+    const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''))
+
     // Parse data rows
-    const dataRows = lines.slice(1).map((line, index) => {
-      const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+    const dataRows = lines.slice(1).map((line: string, index: number) => {
+      const values = line.split(',').map((v: string) => v.trim().replace(/"/g, ''))
       const item: any = { id: `csv_${index}` }
-      headers.forEach((header, i) => {
+      headers.forEach((header: string, i: number) => {
         item[header] = values[i] || ''
       })
       return item
@@ -66,9 +66,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('CSV data read error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to read CSV data' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: 'Failed to read CSV data' }, { status: 500 })
   }
 }

@@ -651,7 +651,9 @@ export default function BulkEditHeader({
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Progress</span>
-                  <span className="text-sm text-muted-foreground">{Math.round(uploadFlow.progress)}%</span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(uploadFlow.progress)}%
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -721,11 +723,15 @@ export default function BulkEditHeader({
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">{uploadFlow.uploadResults.success}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {uploadFlow.uploadResults.success}
+                  </div>
                   <div className="text-sm text-green-600">Items Successfully Updated</div>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">{uploadFlow.uploadResults.failed}</div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {uploadFlow.uploadResults.failed}
+                  </div>
                   <div className="text-sm text-red-600">Items Failed to Update</div>
                 </div>
               </div>

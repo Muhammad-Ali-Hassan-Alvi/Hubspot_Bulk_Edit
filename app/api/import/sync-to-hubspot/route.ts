@@ -36,12 +36,16 @@ export async function POST(request: NextRequest) {
       // Get page types for all changes
       const pageIdsToUpdate = changes.map(c => c.pageId)
       console.log('Looking for page types for page IDs:', pageIdsToUpdate)
-      
+
       // Try page_snapshots table first
-      let { data: pageTypesData, error: pageTypesError } = await supabase
+      let pageTypesData
+      const result = await supabase
         .from('page_snapshots')
         .select('hubspot_page_id, content_type')
         .in('hubspot_page_id', pageIdsToUpdate)
+
+      pageTypesData = result.data
+      const pageTypesError = result.error
 
       console.log('Page types data from page_snapshots:', pageTypesData)
 
@@ -52,23 +56,32 @@ export async function POST(request: NextRequest) {
           .from('hubspot_page_backups')
           .select('hubspot_page_id, page_type')
           .in('hubspot_page_id', pageIdsToUpdate)
-        
+
         if (backupError) {
           console.error('Error fetching from hubspot_page_backups:', backupError)
         } else {
           console.log('Page types data from hubspot_page_backups:', backupData)
-          pageTypesData = backupData?.map(p => ({ hubspot_page_id: p.hubspot_page_id, content_type: p.page_type })) || []
+          pageTypesData =
+            backupData?.map(p => ({
+              hubspot_page_id: p.hubspot_page_id,
+              content_type: p.page_type,
+            })) || []
         }
       }
 
       if (pageTypesError) {
         console.error('Error fetching page types:', pageTypesError)
-        return NextResponse.json({ success: false, error: 'Failed to fetch page types' }, { status: 500 })
+        return NextResponse.json(
+          { success: false, error: 'Failed to fetch page types' },
+          { status: 500 }
+        )
       }
 
       console.log('Final page types data:', pageTypesData)
-      
-      const pageTypeMap = new Map((pageTypesData || []).map(p => [p.hubspot_page_id, p.content_type]))
+
+      const pageTypeMap = new Map(
+        (pageTypesData || []).map(p => [p.hubspot_page_id, p.content_type])
+      )
 
       for (const change of changes) {
         try {
@@ -87,7 +100,7 @@ export async function POST(request: NextRequest) {
           // Determine the correct HubSpot API endpoint
           let updateUrl = ''
           console.log(`Page ${pageId} has content_type: ${pageType}`)
-          
+
           if (pageType === 'Site Page' || pageType === 'site-pages') {
             updateUrl = `https://api.hubapi.com/cms/v3/pages/site-pages/${pageId}`
           } else if (pageType === 'Landing Page' || pageType === 'landing-pages') {
@@ -103,7 +116,7 @@ export async function POST(request: NextRequest) {
 
           // Build the update data from the change fields
           const updateData: { [key: string]: any } = {}
-          
+
           // HubSpot field mapping
           const hubspotFieldMapping: { [key: string]: string } = {
             name: 'name',
@@ -112,7 +125,7 @@ export async function POST(request: NextRequest) {
             slug: 'slug',
             body_content: 'body',
           }
-          
+
           for (const [fieldName, fieldData] of Object.entries(change.fields)) {
             // Use the database field name to map to HubSpot field
             const hubspotField = hubspotFieldMapping[fieldName] || fieldName
@@ -120,8 +133,11 @@ export async function POST(request: NextRequest) {
             updateData[hubspotField] = fieldValue.new
           }
 
-          console.log(`Attempting to update HubSpot page ${pageId} (${pageType}) with data:`, updateData)
-          
+          console.log(
+            `Attempting to update HubSpot page ${pageId} (${pageType}) with data:`,
+            updateData
+          )
+
           const response = await fetch(updateUrl, {
             method: 'PATCH',
             headers: {
@@ -131,7 +147,11 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify(updateData),
           })
 
-          console.log(`HubSpot API response for page ${pageId}:`, response.status, response.statusText)
+          console.log(
+            `HubSpot API response for page ${pageId}:`,
+            response.status,
+            response.statusText
+          )
 
           if (response.ok) {
             syncedCount++

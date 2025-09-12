@@ -81,7 +81,7 @@ export function useUploadFlow(): UseUploadFlowReturn {
 
     try {
       await onUpload()
-      
+
       // Wait a bit for the progress to complete
       setTimeout(() => {
         setState(prev => ({

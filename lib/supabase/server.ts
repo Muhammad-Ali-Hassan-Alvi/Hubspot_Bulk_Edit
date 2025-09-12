@@ -28,7 +28,7 @@ export function createClient() {
           if (typeof window === 'undefined') {
             cookieStore.set({ name, value, ...options })
           }
-        } catch (error) {
+        } catch {
           // Silently ignore cookie setting errors in non-server contexts
           // This prevents the console spam you're seeing
         }
@@ -39,7 +39,7 @@ export function createClient() {
           if (typeof window === 'undefined') {
             cookieStore.set({ name, value: '', ...options })
           }
-        } catch (error) {
+        } catch {
           // Silently ignore cookie removal errors in non-server contexts
         }
       },
@@ -48,7 +48,7 @@ export function createClient() {
       flowType: 'pkce',
       detectSessionInUrl: true,
       autoRefreshToken: false, // Disable auto refresh to prevent cookie issues
-      persistSession: false,   // Disable session persistence on server
+      persistSession: false, // Disable session persistence on server
     },
   })
 }

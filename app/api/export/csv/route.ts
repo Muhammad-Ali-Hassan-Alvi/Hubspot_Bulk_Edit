@@ -35,7 +35,9 @@ const SNAPSHOT_FIELD_MAP: { header: string; dbKey: string }[] = [
 function toCamel(label: string) {
   return label
     .split(/[_\s]+/)
-    .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .map((w, i) =>
+      i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    )
     .join('')
 }
 
@@ -51,8 +53,15 @@ function toSnake(s: string) {
 function tryParseJSON(value: any) {
   if (typeof value !== 'string') return value
   const trimmed = value.trim()
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-    try { return JSON.parse(trimmed) } catch { return value }
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return value
+    }
   }
   return value
 }
@@ -110,12 +119,10 @@ function generateCSVContent(data: any[], headers: string[]): string {
 
   // Create CSV header row
   const headerRow = headers.map(escapeCSVValue).join(',')
-  
+
   // Create CSV data rows
-  const dataRows = data.map(row => 
-    headers.map(header => escapeCSVValue(row[header])).join(',')
-  )
-  
+  const dataRows = data.map(row => headers.map(header => escapeCSVValue(row[header])).join(','))
+
   // Combine header and data rows
   return [headerRow, ...dataRows].join('\n')
 }
@@ -127,15 +134,21 @@ export async function POST(request: Request) {
   try {
     const { data, columns, contentType = 'Landing Page' } = await request.json()
     if (!data || !columns) {
-      return NextResponse.json({ success: false, error: 'Missing required fields: data or columns' }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: data or columns' },
+        { status: 400 }
+      )
     }
 
     const timestamp = new Date().toISOString()
 
     // Build columns + headers (keeps original behavior)
     const columnsWithKeys: ColumnDefinition[] = columns.map((label: string) => {
-      const key = label.split(' ')
-        .map((word, i) => (i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
+      const key = label
+        .split(' ')
+        .map((word, i) =>
+          i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
         .join('')
       return { label, key }
     })
@@ -186,7 +199,12 @@ export async function POST(request: Request) {
           // normalize published -> boolean
           if (dbKey === 'published') {
             if (typeof value === 'string') {
-              row[dbKey] = value.toUpperCase() === 'TRUE' ? true : (value === '' || value.toUpperCase() === 'EMPTY' ? null : null)
+              row[dbKey] =
+                value.toUpperCase() === 'TRUE'
+                  ? true
+                  : value === '' || value.toUpperCase() === 'EMPTY'
+                    ? null
+                    : null
             } else {
               row[dbKey] = value ?? null
             }

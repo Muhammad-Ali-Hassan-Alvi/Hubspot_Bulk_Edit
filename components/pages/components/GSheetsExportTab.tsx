@@ -95,12 +95,12 @@ export default function GSheetsExportTab({
         const logResult = await logExportActivityAction('sheets', {
           content_type: contentType,
           items_count: dataToExport.length,
-          columns_exported: [], // 👈 pass empty array so columns_exported is skipped
+          columns_exported: [],
           tab_name: tabName?.trim() || 'Default',
           sheet_url: `https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`,
-          sheet_name: `[${selectedSheetName}](${`https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`})`, // markdown clickable
+          sheet_name: `[${selectedSheetName}](${`https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`})`,
         })
-        
+
         if (!logResult.success) {
           console.error('Failed to log export activity:', logResult.error)
         }

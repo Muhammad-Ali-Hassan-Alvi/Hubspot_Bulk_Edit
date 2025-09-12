@@ -28,7 +28,7 @@ export default function CsvExportTab({
   content,
   setIsExportModalOpen,
   contentType = 'Landing Page',
-  user,
+  user: _user,
 }: CsvExportTabProps) {
   const { toast } = useToast()
 
@@ -57,7 +57,7 @@ export default function CsvExportTab({
       })
 
       const result = await response.json()
-      
+
       if (result.success) {
         // Create and download CSV file
         const blob = new Blob([result.csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -80,7 +80,6 @@ export default function CsvExportTab({
       })
     }
   }
-
 
   return (
     <TabsContent value="csv" className="space-y-4 pt-4">

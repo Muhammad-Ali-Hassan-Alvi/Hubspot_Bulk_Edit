@@ -767,13 +767,13 @@ async function fetchAllFromEndpoint(url: string, headers: HeadersInit): Promise<
 
   while (currentUrl) {
     try {
-      const response = await fetch(currentUrl, { headers })
+      const response: Response = await fetch(currentUrl, { headers })
       if (!response.ok) {
         console.error(`Failed to fetch from ${currentUrl}: ${response.status}`)
         break
       }
 
-      const data = await response.json()
+      const data: any = await response.json()
       if (data.results && Array.isArray(data.results)) {
         allResults.push(...data.results)
       }

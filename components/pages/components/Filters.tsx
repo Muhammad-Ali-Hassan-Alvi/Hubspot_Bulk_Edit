@@ -182,7 +182,7 @@ export default function Filters({
       setSelectedFilterField(defaultField)
     }
     setTempFilterValue('')
-  }, [contentType]) // Only depend on contentType, not displayedFilterFields
+  }, [contentType, displayedFilterFields, selectedFilterField]) // Added missing dependencies
 
   // ... (dropdownOptions and useEffect remain the same) ...
 

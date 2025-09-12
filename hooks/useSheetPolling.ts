@@ -39,19 +39,6 @@ export function useSheetPolling({
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const { toast } = useToast()
 
-  // Generate a simple hash for data comparison
-  const generateDataHash = useCallback((data: any[]) => {
-    if (!data || data.length === 0) return 'empty'
-
-    // Create a simple hash based on row count and first few rows
-    const sample = data
-      .slice(0, 3)
-      .map(row => Object.values(row).join('|'))
-      .join('||')
-
-    return `${data.length}_${sample.length}_${JSON.stringify(sample).slice(0, 100)}`
-  }, [])
-
   // Poll for changes using the optimized endpoint
   const pollForChangesOptimized = useCallback(async () => {
     if (!sheetId || !tabName || !userId) return null

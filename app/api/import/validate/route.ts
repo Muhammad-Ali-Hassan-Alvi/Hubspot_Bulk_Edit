@@ -19,7 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    let validationResult = { isValid: false, error: '', exportDetails: null }
+    let validationResult: { isValid: boolean; error: string; exportDetails: any } = {
+      isValid: false,
+      error: '',
+      exportDetails: null,
+    }
 
     if (importType === 'csv') {
       // CSV validation logic
@@ -33,29 +37,29 @@ export async function POST(request: NextRequest) {
       // Extract ID from filename format: hubspot_{contentType}_{count}_items_{date}.csv or .xlsx
       const filenamePattern = /^hubspot_(.+)_(\d+)_items_(\d{4}-\d{2}-\d{2})\.(csv|xlsx?)$/i
       const match = fileName.match(filenamePattern)
-      
+
       // Debug: Log filename validation
       console.log('=== CSV VALIDATION DEBUG ===')
       console.log('Filename:', fileName)
       console.log('Pattern:', filenamePattern)
       console.log('Match result:', match)
-      
+
       if (!match) {
         validationResult = {
           isValid: false,
           error: 'Invalid file format. Please use a file exported from this system.',
-          exportDetails: null
+          exportDetails: null,
         }
       } else {
         const [, extractedContentType, , exportDate] = match
         const normalizedExtractedType = extractedContentType.replace(/_/g, ' ').toLowerCase()
         const normalizedSelectedType = contentType.replace(/-/g, ' ').toLowerCase()
-        
+
         if (normalizedExtractedType !== normalizedSelectedType) {
           validationResult = {
             isValid: false,
             error: `Content type mismatch. File was exported for "${extractedContentType.replace(/_/g, ' ')}" but you selected "${contentType}".`,
-            exportDetails: null
+            exportDetails: null,
           }
         } else {
           // Check if this export exists in audit logs
@@ -65,23 +69,32 @@ export async function POST(request: NextRequest) {
             .eq('user_id', user.id)
             .eq('action_type', 'export_csv')
             .eq('resource_type', 'export')
-            .contains('details', { filename: fileName })
             .order('created_at', { ascending: false })
-            .limit(1)
+            .limit(10) // Get recent exports
 
-          // Debug: Log audit log lookup
-          console.log('Audit log lookup for filename:', fileName)
-          console.log('Export logs found:', exportLogs?.length || 0)
-          console.log('Log error:', logError)
+          // Look for matching export by filename (more flexible matching)
+          const matchingExport = exportLogs?.find(log => {
+            const details = log.details
+            if (!details || !details.filename) return false
+
+            // Check if filenames match (exact or similar)
+            const logFilename = details.filename
+            const isExactMatch = logFilename === fileName
+            const isSimilarMatch =
+              logFilename.includes(fileName.split('.')[0]) ||
+              fileName.includes(logFilename.split('.')[0])
+
+            return isExactMatch || isSimilarMatch
+          })
 
           if (logError) {
             console.error('Error checking export logs:', logError)
             validationResult = {
               isValid: false,
               error: 'Unable to verify export history. Please try again.',
-              exportDetails: null
+              exportDetails: null,
             }
-          } else if (exportLogs && exportLogs.length > 0) {
+          } else if (matchingExport) {
             validationResult = {
               isValid: true,
               error: '',
@@ -90,13 +103,12 @@ export async function POST(request: NextRequest) {
                 contentType: extractedContentType.replace(/_/g, ' '),
                 exportDate,
                 fileName,
-                tabId: '0' // CSV exports use tab 0 by default
-              }
+                tabId: '0', // CSV exports use tab 0 by default
+              },
             }
           } else {
             // For CSV files, if the filename format is correct but no audit log is found,
             // we'll still allow it (audit logs might not be available or might be delayed)
-            console.log('No audit log found, but filename format is correct - allowing CSV import')
             validationResult = {
               isValid: true,
               error: '',
@@ -105,8 +117,8 @@ export async function POST(request: NextRequest) {
                 contentType: extractedContentType.replace(/_/g, ' '),
                 exportDate,
                 fileName,
-                tabId: '0' // CSV exports use tab 0 by default
-              }
+                tabId: '0', // CSV exports use tab 0 by default
+              },
             }
           }
         }
@@ -115,7 +127,10 @@ export async function POST(request: NextRequest) {
       // Google Sheets validation logic
       if (!sheetId || !tabId) {
         return NextResponse.json(
-          { success: false, error: 'Sheet ID and Tab ID are required for Google Sheets validation' },
+          {
+            success: false,
+            error: 'Sheet ID and Tab ID are required for Google Sheets validation',
+          },
           { status: 400 }
         )
       }
@@ -130,56 +145,41 @@ export async function POST(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(20) // Get recent exports
 
-      // Debug: Log Google Sheets validation
-      console.log('=== GOOGLE SHEETS VALIDATION DEBUG ===')
-      console.log('Sheet ID:', sheetId)
-      console.log('Tab ID:', tabId)
-      console.log('Selected Content Type:', contentType)
-      console.log('Export logs found:', exportLogs?.length || 0)
-
       if (logError) {
         console.error('Error checking export logs:', logError)
         validationResult = {
           isValid: false,
           error: 'Unable to verify export history. Please try again.',
-          exportDetails: null
+          exportDetails: null,
         }
       } else if (exportLogs && exportLogs.length > 0) {
         // Check if any of the recent exports match this sheet and content type
         const matchingExport = exportLogs.find(log => {
           const details = log.details
           if (!details || !details.sheet_url) return false
-          
+
           // Check if sheet URL contains the sheetId
           const sheetMatches = details.sheet_url.includes(sheetId)
-          
+
           // Check if content type matches
           const exportedContentType = details.content_type
-          
+
           // Handle both label format (e.g., "Landing Pages") and value format (e.g., "landing-pages")
           const normalizeContentType = (type: string) => {
-            return type.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+            return type
+              .toLowerCase()
+              .replace(/\s+/g, '-')
+              .replace(/[^a-z0-9-]/g, '')
           }
-          
+
           const normalizedExportedType = normalizeContentType(exportedContentType)
           const normalizedSelectedType = normalizeContentType(contentType)
           const contentTypeMatches = normalizedExportedType === normalizedSelectedType
-          
-          console.log('Checking export log:', {
-            sheetUrl: details.sheet_url,
-            sheetMatches,
-            exportedContentType,
-            selectedContentType: contentType,
-            normalizedExportedType,
-            normalizedSelectedType,
-            contentTypeMatches
-          })
-          
+
           return sheetMatches && contentTypeMatches
         })
 
         if (matchingExport) {
-          console.log('Found matching export:', matchingExport.details)
           validationResult = {
             isValid: true,
             error: '',
@@ -189,8 +189,8 @@ export async function POST(request: NextRequest) {
               sheetId,
               tabId,
               exportDate: matchingExport.created_at,
-              sheetName: matchingExport.details?.sheet_name || 'Unknown Sheet'
-            }
+              sheetName: matchingExport.details?.sheet_name || 'Unknown Sheet',
+            },
           }
         } else {
           // Check if there are exports for this sheet but with different content type
@@ -198,19 +198,21 @@ export async function POST(request: NextRequest) {
             const details = log.details
             return details && details.sheet_url && details.sheet_url.includes(sheetId)
           })
-          
+
           if (sheetExports.length > 0) {
-            const exportedContentTypes = sheetExports.map(log => log.details.content_type).join(', ')
+            const exportedContentTypes = sheetExports
+              .map(log => log.details.content_type)
+              .join(', ')
             validationResult = {
               isValid: false,
               error: `Content type mismatch. This sheet was exported for "${exportedContentTypes}" but you selected "${contentType}". Please select the correct content type or export data with the selected content type.`,
-              exportDetails: null
+              exportDetails: null,
             }
           } else {
             validationResult = {
               isValid: false,
               error: `No export found for this sheet/tab combination. Please export data first or select the correct sheet/tab.`,
-              exportDetails: null
+              exportDetails: null,
             }
           }
         }
@@ -218,7 +220,7 @@ export async function POST(request: NextRequest) {
         validationResult = {
           isValid: false,
           error: `No exports found for "${contentType}" content type. Please export data first.`,
-          exportDetails: null
+          exportDetails: null,
         }
       }
     } else {
@@ -230,15 +232,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      validation: validationResult
+      validation: validationResult,
     })
-
   } catch (error) {
     console.error('Validation error:', error)
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.'
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }

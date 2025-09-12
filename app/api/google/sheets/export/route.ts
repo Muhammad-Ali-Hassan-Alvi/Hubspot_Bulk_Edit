@@ -36,7 +36,9 @@ const SNAPSHOT_FIELD_MAP: { header: string; dbKey: string }[] = [
 function toCamel(label: string) {
   return label
     .split(/[_\s]+/)
-    .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .map((w, i) =>
+      i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    )
     .join('')
 }
 function toSnake(s: string) {
@@ -51,8 +53,15 @@ function toSnake(s: string) {
 function tryParseJSON(value: any) {
   if (typeof value !== 'string') return value
   const trimmed = value.trim()
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-    try { return JSON.parse(trimmed) } catch { return value }
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return value
+    }
   }
   return value
 }
@@ -88,13 +97,22 @@ function getFieldValue(page: PageData, label: string, key: string) {
   return null
 }
 
-async function refreshAccessTokenIfNeeded(userSettings: any, supabase: ReturnType<typeof createClient>, userId: string) {
+async function refreshAccessTokenIfNeeded(
+  userSettings: any,
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+) {
   let accessToken = userSettings.google_access_token
   const refreshToken = userSettings.google_refresh_token
-  const expiresAt = userSettings.google_token_expires_at ? new Date(userSettings.google_token_expires_at) : null
+  const expiresAt = userSettings.google_token_expires_at
+    ? new Date(userSettings.google_token_expires_at)
+    : null
   const now = new Date()
   if (expiresAt && now >= expiresAt && refreshToken) {
-    const oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET)
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    )
     oauth2Client.setCredentials({ refresh_token: refreshToken })
     try {
       // modern googleapis uses getAccessToken / refreshAccessToken depending on version. `refreshAccessToken` may be deprecated,
@@ -102,16 +120,21 @@ async function refreshAccessTokenIfNeeded(userSettings: any, supabase: ReturnTyp
       // Use any available method and fall back gracefully.
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      const res = await oauth2Client.refreshAccessToken?.() ?? await oauth2Client.getAccessToken()
+      const res =
+        (await oauth2Client.refreshAccessToken?.()) ?? (await oauth2Client.getAccessToken())
       // res may be a token string or an object with credentials depending on client version
       // normalize it
-      const credentials = (res && (res as any).credentials) ? (res as any).credentials : oauth2Client.credentials
+      const credentials =
+        res && (res as any).credentials ? (res as any).credentials : oauth2Client.credentials
       accessToken = credentials.access_token ?? accessToken
       const expiry = credentials.expiry_date ?? credentials.expires_at ?? null
-      await supabase.from('user_settings').update({
-        google_access_token: accessToken,
-        google_token_expires_at: expiry ? new Date(expiry).toISOString() : null,
-      }).eq('user_id', userId)
+      await supabase
+        .from('user_settings')
+        .update({
+          google_access_token: accessToken,
+          google_token_expires_at: expiry ? new Date(expiry).toISOString() : null,
+        })
+        .eq('user_id', userId)
     } catch (err) {
       console.error('Token refresh failed:', err)
       throw new Error('Token refresh failed')
@@ -134,16 +157,22 @@ export async function POST(request: Request) {
   try {
     const { sheetId, data, columns, tabName } = await request.json()
     if (!sheetId || !data || !columns) {
-      return NextResponse.json({ success: false, error: 'Missing required fields: sheetId, data, or columns' }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: sheetId, data, or columns' },
+        { status: 400 }
+      )
     }
 
     const userSettings = await getServerUserSettings(user.id)
     if (!userSettings?.google_access_token) {
-      return NextResponse.json({ success: false, error: 'Google Sheets not connected' }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: 'Google Sheets not connected' },
+        { status: 400 }
+      )
     }
 
     // Ensure access token is valid (refresh if expired)
-    let accessToken = await refreshAccessTokenIfNeeded(userSettings, supabase, user.id)
+    const accessToken = await refreshAccessTokenIfNeeded(userSettings, supabase, user.id)
 
     const auth = new google.auth.OAuth2()
     auth.setCredentials({ access_token: accessToken })
@@ -153,8 +182,11 @@ export async function POST(request: Request) {
 
     // Build columns + headers (keeps original behavior)
     const columnsWithKeys: ColumnDefinition[] = columns.map((label: string) => {
-      const key = label.split(' ')
-        .map((word, i) => (i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()))
+      const key = label
+        .split(' ')
+        .map((word, i) =>
+          i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
         .join('')
       return { label, key }
     })
@@ -193,7 +225,10 @@ export async function POST(request: Request) {
     }
 
     // Clear and insert new data
-    await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${sheetRangePrefix}A:Z` })
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: `${sheetRangePrefix}A:Z`,
+    })
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
       range: `${sheetRangePrefix}A1`,
@@ -204,14 +239,27 @@ export async function POST(request: Request) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
       requestBody: {
-        requests: [{
-          repeatCell: {
-            range: { sheetId: targetSheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: headers.length },
-            cell: { userEnteredFormat: { backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 }, textFormat: { bold: true } } },
-            fields: 'userEnteredFormat(backgroundColor,textFormat)'
-          }
-        }]
-      }
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId: targetSheetId,
+                startRowIndex: 0,
+                endRowIndex: 1,
+                startColumnIndex: 0,
+                endColumnIndex: headers.length,
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+                  textFormat: { bold: true },
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)',
+            },
+          },
+        ],
+      },
     })
 
     // -------- Save structured backup (with history) --------
@@ -234,7 +282,12 @@ export async function POST(request: Request) {
           // normalize published -> boolean
           if (dbKey === 'published') {
             if (typeof value === 'string') {
-              row[dbKey] = value.toUpperCase() === 'TRUE' ? true : (value === '' || value.toUpperCase() === 'EMPTY' ? null : null)
+              row[dbKey] =
+                value.toUpperCase() === 'TRUE'
+                  ? true
+                  : value === '' || value.toUpperCase() === 'EMPTY'
+                    ? null
+                    : null
             } else {
               row[dbKey] = value ?? null
             }
@@ -261,6 +314,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Google Sheets export error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to export to Google Sheets' }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: 'Failed to export to Google Sheets' },
+      { status: 500 }
+    )
   }
 }

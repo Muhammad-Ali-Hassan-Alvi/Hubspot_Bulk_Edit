@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -34,7 +33,6 @@ interface ImportManagerProps {
 export const useImportManager = ({
   contentType = 'pages',
   onImportComplete,
-  onContentTypeChange,
 }: ImportManagerProps) => {
   const [activeTab, setActiveTab] = useState<'csv' | 'gsheet'>('gsheet')
   const [, setCsvFile] = useState<File | null>(null)
@@ -56,7 +54,7 @@ export const useImportManager = ({
   })
   const [validationError, setValidationError] = useState<string>('')
   const [isValidating, setIsValidating] = useState(false)
-  
+
   // Clear validation errors when content type changes
   useEffect(() => {
     setValidationError('')
@@ -67,7 +65,6 @@ export const useImportManager = ({
   const { user } = useUser()
   const { userSettings } = useUserSettings()
   const uploadFlow = useUploadFlow()
-  
 
   const polling = useSheetPolling({
     sheetId: selectedSheet,
@@ -97,7 +94,11 @@ export const useImportManager = ({
       }
     } catch (error) {
       console.error('Sheets fetch error:', error)
-      toast({ title: 'Error', description: 'Failed to fetch Google Sheets', variant: 'destructive' })
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch Google Sheets',
+        variant: 'destructive',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -108,19 +109,24 @@ export const useImportManager = ({
       fetchUserSheets()
     }
   }, [activeTab, user?.id, fetchUserSheets])
-  
+
   const parseCsvFile = (file: File) => {
     const reader = new FileReader()
     reader.onload = e => {
       const text = e.target?.result as string
       const lines = text.split('\n')
       const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-      const data = lines.slice(1).filter(line => line.trim()).map((line, index) => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
-        const row: ImportData = { id: `csv_${index}` }
-        headers.forEach((header, i) => { row[header] = values[i] || '' })
-        return row
-      })
+      const data = lines
+        .slice(1)
+        .filter(line => line.trim())
+        .map((line, index) => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+          const row: ImportData = { id: `csv_${index}` }
+          headers.forEach((header, i) => {
+            row[header] = values[i] || ''
+          })
+          return row
+        })
       setCsvData(data)
       toast({ title: 'CSV Loaded', description: `${data.length} rows imported successfully` })
     }
@@ -133,47 +139,63 @@ export const useImportManager = ({
       if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
         // For Excel files, we need to use a different approach
         // For now, show an error message
-        reject(new Error('Excel files (.xlsx/.xls) are not supported yet. Please convert to CSV format.'))
+        reject(
+          new Error('Excel files (.xlsx/.xls) are not supported yet. Please convert to CSV format.')
+        )
         return
       }
-      
+
       const reader = new FileReader()
       reader.onload = e => {
         const text = e.target?.result as string
-        
+
         // Check if the content looks like binary data (Excel file)
         if (text.includes('\x00') || text.startsWith('PK\x03\x04')) {
-          reject(new Error('This appears to be an Excel file. Please convert to CSV format or use a proper CSV file.'))
+          reject(
+            new Error(
+              'This appears to be an Excel file. Please convert to CSV format or use a proper CSV file.'
+            )
+          )
           return
         }
-        
+
         const lines = text.split('\n')
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-        const data = lines.slice(1).filter(line => line.trim()).map((line, index) => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
-          const row: ImportData = { id: `csv_${index}` }
-          headers.forEach((header, i) => { row[header] = values[i] || '' })
-          return row
-        })
-        
+        const data = lines
+          .slice(1)
+          .filter(line => line.trim())
+          .map((line, index) => {
+            const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
+            const row: ImportData = { id: `csv_${index}` }
+            headers.forEach((header, i) => {
+              row[header] = values[i] || ''
+            })
+            return row
+          })
+
         // Debug: Log CSV parsing results
         console.log('=== CSV PARSING DEBUG ===')
         console.log('CSV Headers:', headers)
         console.log('CSV Data Length:', data.length)
         console.log('Sample CSV Row:', data[0])
-        
+
         resolve(data)
       }
       reader.readAsText(file)
     })
   }
 
-  const validateImport = async (importType: 'csv' | 'gsheet', fileName?: string, sheetId?: string, tabId?: string) => {
+  const validateImport = async (
+    importType: 'csv' | 'gsheet',
+    fileName?: string,
+    sheetId?: string,
+    tabId?: string
+  ) => {
     if (!user?.id) return { isValid: false, error: 'User not authenticated' }
-    
+
     setIsValidating(true)
     setValidationError('')
-    
+
     try {
       const response = await fetch('/api/import/validate', {
         method: 'POST',
@@ -184,10 +206,10 @@ export const useImportManager = ({
           importType,
           fileName,
           sheetId,
-          tabId
-        })
+          tabId,
+        }),
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         if (data.success && data.validation) {
@@ -200,7 +222,7 @@ export const useImportManager = ({
           }
         }
       }
-      
+
       const errorData = await response.json()
       setValidationError(errorData.error || 'Validation failed')
       return { isValid: false, error: errorData.error || 'Validation failed' }
@@ -216,47 +238,52 @@ export const useImportManager = ({
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    
+
     if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
-      toast({ title: 'Invalid File', description: 'Please select a CSV or Excel file', variant: 'destructive' })
+      toast({
+        title: 'Invalid File',
+        description: 'Please select a CSV or Excel file',
+        variant: 'destructive',
+      })
       return
     }
-    
+
     // Start import progress
     setImportProgress({
       active: true,
       progress: 0,
-      message: 'Validating CSV file...'
+      message: 'Validating CSV file...',
     })
-    
+
     try {
       // Validate the file first
       const validation = await validateImport('csv', file.name)
       if (!validation.isValid) {
         setImportProgress({ active: false, progress: 0, message: '' })
-        toast({ 
-          title: 'Validation Failed', 
-          description: validation.error, 
-          variant: 'destructive' 
+        toast({
+          title: 'Validation Failed',
+          description: validation.error,
+          variant: 'destructive',
+          duration: 4000, // Auto-hide after 4 seconds
         })
         return
       }
-      
+
       setImportProgress({
         active: true,
         progress: 50,
-        message: 'Processing CSV data...'
+        message: 'Processing CSV data...',
       })
-      
+
       setCsvFile(file)
       parseCsvFile(file)
-      
+
       setImportProgress({
         active: true,
         progress: 100,
-        message: 'CSV file loaded successfully'
+        message: 'CSV file loaded successfully',
       })
-      
+
       // Auto-detect changes after successful validation
       setTimeout(async () => {
         setImportProgress({ active: false, progress: 0, message: '' })
@@ -267,24 +294,24 @@ export const useImportManager = ({
             await detectChanges(parsedData, 'csv', 'csv-file')
           }
         } catch (error) {
-          toast({ 
-            title: 'File Format Error', 
-            description: error instanceof Error ? error.message : 'Invalid file format', 
-            variant: 'destructive' 
+          toast({
+            title: 'File Format Error',
+            description: error instanceof Error ? error.message : 'Invalid file format',
+            variant: 'destructive',
           })
         }
       }, 1000)
-      
-      toast({ 
-        title: 'File Validated', 
-        description: `File validated for ${contentType} content type` 
+
+      toast({
+        title: 'File Validated',
+        description: `File validated for ${contentType} content type`,
       })
     } catch (error) {
       setImportProgress({ active: false, progress: 0, message: '' })
-      toast({ 
-        title: 'Upload Failed', 
-        description: 'Failed to process CSV file', 
-        variant: 'destructive' 
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to process CSV file',
+        variant: 'destructive',
       })
     }
   }
@@ -300,7 +327,7 @@ export const useImportManager = ({
       const response = await fetch(`/api/google/sheets/${sheetId}/tabs`)
       if (response.ok) {
         const data = await response.json()
-        setSheets(prev => prev.map(s => s.id === sheetId ? { ...s, tabs: data.tabs || [] } : s))
+        setSheets(prev => prev.map(s => (s.id === sheetId ? { ...s, tabs: data.tabs || [] } : s)))
       }
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to fetch sheet tabs', variant: 'destructive' })
@@ -311,14 +338,14 @@ export const useImportManager = ({
 
   const detectChanges = async (importData: ImportData[], sheetId: string, tabName: string) => {
     if (!user?.id || importData.length === 0) return
-    
+
     // Determine import type based on sheetId
     const importType = sheetId === 'csv' ? 'csv' : 'sheets'
-    
+
     // For CSV, we need to provide valid sheetId and tabName for the API
     const apiSheetId = sheetId === 'csv' ? 'csv-import' : sheetId
     const apiTabName = tabName === 'csv-file' ? 'csv-data' : tabName
-    
+
     // Debug: Log the data being sent for CSV
     if (sheetId === 'csv') {
       console.log('=== CSV DETECT CHANGES DEBUG ===')
@@ -327,41 +354,41 @@ export const useImportManager = ({
       console.log('CSV Headers:', Object.keys(importData[0]))
       console.log('Content Type:', contentType)
     }
-    
+
     setIsLoading(true)
     try {
       const response = await fetch('/api/import/detect-changes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user.id, 
-          contentType, 
-          importData, 
-          sheetId: apiSheetId, 
+        body: JSON.stringify({
+          userId: user.id,
+          contentType,
+          importData,
+          sheetId: apiSheetId,
           tabName: apiTabName,
-          importType
+          importType,
         }),
       })
       if (response.ok) {
         const data = await response.json()
         setChanges(data.changes || [])
         if (data.changes && data.changes.length > 0) {
-          toast({ 
-            title: 'Changes Detected', 
-            description: `Found ${data.changes.length} changes to sync` 
+          toast({
+            title: 'Changes Detected',
+            description: `Found ${data.changes.length} changes to sync`,
           })
         } else {
-          toast({ 
-            title: 'No Changes', 
-            description: 'No changes detected between CSV and HubSpot data' 
+          toast({
+            title: 'No Changes',
+            description: 'No changes detected between CSV and HubSpot data',
           })
         }
       } else {
         const errorData = await response.json()
-        toast({ 
-          title: 'Error', 
-          description: errorData.error || 'Failed to detect changes', 
-          variant: 'destructive' 
+        toast({
+          title: 'Error',
+          description: errorData.error || 'Failed to detect changes',
+          variant: 'destructive',
         })
       }
     } catch (error) {
@@ -376,46 +403,68 @@ export const useImportManager = ({
     setSheetData([])
     setChanges([])
     if (!selectedSheet || !tabName) return
-    
+
     // Validate the sheet/tab combination first
     setImportProgress({ active: true, progress: 0, message: 'Validating import...' })
     const validation = await validateImport('gsheet', undefined, selectedSheet, tabName)
     if (!validation.isValid) {
       setImportProgress({ active: false, progress: 0, message: '' })
-      toast({ 
-        title: 'Validation Failed', 
-        description: validation.error, 
-        variant: 'destructive' 
+      toast({
+        title: 'Validation Failed',
+        description: validation.error,
+        variant: 'destructive',
+        duration: 4000, // Auto-hide after 4 seconds
       })
       return
     }
-    
-    setImportProgress({ active: true, progress: 25, message: 'Validation passed, fetching data...' })
+
+    setImportProgress({
+      active: true,
+      progress: 25,
+      message: 'Validation passed, fetching data...',
+    })
     try {
-      setTimeout(() => setImportProgress(p => ({ ...p, progress: 50, message: 'Reading structure...' })), 100)
+      setTimeout(
+        () => setImportProgress(p => ({ ...p, progress: 50, message: 'Reading structure...' })),
+        100
+      )
       const response = await fetch(`/api/google/sheets/${selectedSheet}/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tabName }),
       })
-      setTimeout(() => setImportProgress(p => ({ ...p, progress: 75, message: 'Fetching rows...' })), 500)
+      setTimeout(
+        () => setImportProgress(p => ({ ...p, progress: 75, message: 'Fetching rows...' })),
+        500
+      )
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
           setSheetData(data.rows || [])
-          setTimeout(() => setImportProgress(p => ({ ...p, progress: 90, message: 'Detecting changes...' })), 1000)
+          setTimeout(
+            () => setImportProgress(p => ({ ...p, progress: 90, message: 'Detecting changes...' })),
+            1000
+          )
           if (data.rows?.length > 0) {
             await detectChanges(data.rows, selectedSheet, tabName)
           }
           setImportProgress({ active: true, progress: 100, message: 'Done!' })
-          toast({ 
-            title: 'Sheet Data Loaded', 
-            description: `${data.rows?.length || 0} rows imported and validated for ${contentType}` 
+          toast({
+            title: 'Sheet Data Loaded',
+            description: `${data.rows?.length || 0} rows imported and validated for ${contentType}`,
           })
-        } else { throw new Error(data.error || 'Failed to fetch sheet data') }
-      } else { throw new Error(`HTTP ${response.status}: ${response.statusText}`) }
+        } else {
+          throw new Error(data.error || 'Failed to fetch sheet data')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
     } catch (error) {
-      toast({ title: 'Error', description: `Failed to fetch sheet data: ${error instanceof Error ? error.message : 'Unknown error'}`, variant: 'destructive' })
+      toast({
+        title: 'Error',
+        description: `Failed to fetch sheet data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: 'destructive',
+      })
     } finally {
       setTimeout(() => setImportProgress({ active: false, progress: 0, message: '' }), 1500)
     }
@@ -424,17 +473,25 @@ export const useImportManager = ({
   const syncToHubSpot = () => {
     const currentData = activeTab === 'csv' ? csvData : sheetData
     if (currentData.length === 0) {
-      toast({ title: 'No data available', description: 'Please import data first.', variant: 'destructive' })
+      toast({
+        title: 'No data available',
+        description: 'Please import data first.',
+        variant: 'destructive',
+      })
       return
     }
-    
+
     // Check if we have changes to sync
     const allChanges = [...changes, ...polling.changes]
     if (allChanges.length === 0) {
-      toast({ title: 'No changes detected', description: 'Please detect changes first.', variant: 'destructive' })
+      toast({
+        title: 'No changes detected',
+        description: 'Please detect changes first.',
+        variant: 'destructive',
+      })
       return
     }
-    
+
     uploadFlow.startConfirmation()
   }
 
@@ -447,11 +504,11 @@ export const useImportManager = ({
         const response = await fetch('/api/import/sync-to-hubspot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: user?.id, 
-            contentType, 
+          body: JSON.stringify({
+            userId: user?.id,
+            contentType,
             importData: currentData, // Keep for fallback
-            changes: allChanges // Send the specific changes to sync
+            changes: allChanges, // Send the specific changes to sync
           }),
         })
         if (response.ok) {
@@ -466,7 +523,11 @@ export const useImportManager = ({
         }
       } catch (error) {
         uploadFlow.completeUpload(0, allChanges.length)
-        toast({ title: 'Sync Failed', description: 'Failed to sync data to HubSpot', variant: 'destructive' })
+        toast({
+          title: 'Sync Failed',
+          description: 'Failed to sync data to HubSpot',
+          variant: 'destructive',
+        })
       }
     })
   }
@@ -487,18 +548,29 @@ export const useImportManager = ({
     return String(value ?? '')
   }
 
-  const flattenedChanges = Object.values(allChanges.reduce((acc, change) => {
-    const pageId = change.pageId
-    if (!acc[pageId]) acc[pageId] = { pageId, pageName: change.name || change.pageName || pageId, changes: [] }
-    if (change.fields) {
-      Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => {
-        acc[pageId].changes.push({ field: fieldData.header || fieldName, oldValue: fieldData.old, newValue: fieldData.new })
-      })
-    } else {
-      acc[pageId].changes.push({ field: change.header || change.field, oldValue: change.oldValue, newValue: change.newValue })
-    }
-    return acc
-  }, {} as any)).flatMap((pageChange: any) => {
+  const flattenedChanges = Object.values(
+    allChanges.reduce((acc, change) => {
+      const pageId = change.pageId
+      if (!acc[pageId])
+        acc[pageId] = { pageId, pageName: change.name || change.pageName || pageId, changes: [] }
+      if (change.fields) {
+        Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => {
+          acc[pageId].changes.push({
+            field: fieldData.header || fieldName,
+            oldValue: fieldData.old,
+            newValue: fieldData.new,
+          })
+        })
+      } else {
+        acc[pageId].changes.push({
+          field: change.header || change.field,
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+        })
+      }
+      return acc
+    }, {} as any)
+  ).flatMap((pageChange: any) => {
     return pageChange.changes.map((change: any) => ({
       id: `${pageChange.pageId}_${change.field}`,
       pageName: pageChange.pageName,
@@ -508,12 +580,14 @@ export const useImportManager = ({
       newValue: renderChangeValue(change.newValue),
     }))
   })
-  
-  const groupedChangesArray = Object.values(flattenedChanges.reduce((acc, item) => {
-      if (!acc[item.pageId]) acc[item.pageId] = { ...item, changes: [] };
-      acc[item.pageId].changes.push(item);
-      return acc;
-  }, {} as any));
+
+  const groupedChangesArray = Object.values(
+    flattenedChanges.reduce((acc, item) => {
+      if (!acc[item.pageId]) acc[item.pageId] = { ...item, changes: [] }
+      acc[item.pageId].changes.push(item)
+      return acc
+    }, {} as any)
+  )
 
   const resetCsvData = () => {
     setCsvData([])

@@ -63,7 +63,7 @@ export default function DashboardOverviewPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user, router, updateSettings, reduxUserSettings]) // Removed userSettings from dependencies
+  }, [user, router, updateSettings, reduxUserSettings, userSettings]) // Added userSettings back to dependencies
 
   // Manual refresh function for when we need fresh data
   const refreshUserData = useCallback(async () => {
@@ -127,7 +127,7 @@ export default function DashboardOverviewPage() {
     if (user && !userSettings) {
       fetchUserData()
     }
-  }, [user, userSettings]) // Removed fetchUserData from dependencies to prevent infinite loop
+  }, [user, userSettings, fetchUserData]) // Added fetchUserData back to dependencies
 
   // Cleanup effect to reset flags
   useEffect(() => {

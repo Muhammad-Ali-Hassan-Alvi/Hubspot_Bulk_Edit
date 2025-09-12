@@ -54,12 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     const { userId, importData, sheetId, tabName, importType = 'sheets' } = await request.json()
 
-    if (
-      !userId ||
-      !importData ||
-      !Array.isArray(importData) ||
-      importData.length === 0
-    ) {
+    if (!userId || !importData || !Array.isArray(importData) || importData.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Missing or empty required fields.' },
         { status: 400 }
@@ -156,7 +151,7 @@ export async function POST(request: NextRequest) {
     console.log('Import headers:', Object.keys(importData[0]))
     console.log('Sample import row:', importData[0])
     console.log('Field mapping:', fieldsToCompare)
-    
+
     // Debug: Check if we have any pages with matching IDs
     const importPageIds = importData.map(row => row['Id']).filter(id => id)
     const dbPageIds = dbBackupData.map(row => row.hubspot_page_id)
@@ -182,14 +177,14 @@ export async function POST(request: NextRequest) {
         // If page doesn't exist in snapshot, treat it as a new page with all fields as changes
         const newPageChanges: { [key: string]: any } = {}
         let hasChanges = false
-        
+
         for (const header in fieldsToCompare) {
           const dbField = fieldsToCompare[header]
           const importValue = importRow[header]
-          
+
           // Skip empty values for new pages
           if (isEmptyOrNA(importValue)) continue
-          
+
           newPageChanges[dbField] = {
             old: null, // No old value since it's a new page
             new: importValue,
@@ -198,7 +193,7 @@ export async function POST(request: NextRequest) {
           }
           hasChanges = true
         }
-        
+
         if (hasChanges) {
           changes.push({
             pageId: pageId,
@@ -224,7 +219,7 @@ export async function POST(request: NextRequest) {
       for (const header in fieldsToCompare) {
         const dbField = fieldsToCompare[header]
         const importValue = importRow[header]
-        
+
         // Get the value from page_content JSONB field, not direct database columns
         const dbValue = dbPage.page_content?.[dbField] || (dbPage as any)[dbField]
 

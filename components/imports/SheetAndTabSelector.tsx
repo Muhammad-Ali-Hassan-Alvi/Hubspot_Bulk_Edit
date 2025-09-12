@@ -75,7 +75,8 @@ const SheetAndTabSelector = ({
 
   // Use parent sheets data if available, otherwise use local state
   const displaySheets = parentSheets || sheets
-  const isLoadingSheets = parentIsLoadingSheets !== undefined ? parentIsLoadingSheets : fetchingSheets
+  const isLoadingSheets =
+    parentIsLoadingSheets !== undefined ? parentIsLoadingSheets : fetchingSheets
   const isLoadingTabs = parentIsLoadingTabs !== undefined ? parentIsLoadingTabs : fetchingTabs
   const [saving, setSaving] = useState(false)
   const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false)
@@ -338,7 +339,9 @@ const SheetAndTabSelector = ({
                 disabled={isLoadingTabs || !selectedSheetId}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder={isLoadingTabs ? 'Loading tabs...' : 'Choose a tab...'} />
+                  <SelectValue
+                    placeholder={isLoadingTabs ? 'Loading tabs...' : 'Choose a tab...'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {showNewOptions && (
@@ -371,10 +374,7 @@ const SheetAndTabSelector = ({
       </div>
 
       {/* New Tab Modal */}
-      <Dialog
-        open={isNewTabModalOpen}
-        onOpenChange={setIsNewTabModalOpen}
-      >
+      <Dialog open={isNewTabModalOpen} onOpenChange={setIsNewTabModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{saving ? 'Creating Tab...' : 'Create New Tab'}</DialogTitle>

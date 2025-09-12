@@ -1,6 +1,12 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
 interface UploadResultsModalProps {
@@ -83,7 +89,7 @@ export default function UploadResultsModal({
                   View Detailed Logs
                 </Button>
               )}
-              <Button onClick={onClose} className={showViewLogs ? "flex-1" : "w-full"}>
+              <Button onClick={onClose} className={showViewLogs ? 'flex-1' : 'w-full'}>
                 Close
               </Button>
             </div>
