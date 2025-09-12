@@ -9,6 +9,7 @@ type PageData = Record<string, any>
 
 // List of supported snapshot fields and how to extract them from incoming row
 const SNAPSHOT_FIELD_MAP: { header: string; dbKey: string }[] = [
+  // Core fields
   { header: 'Id', dbKey: 'hubspot_page_id' },
   { header: 'Content Type', dbKey: 'content_type' },
   { header: 'Name', dbKey: 'name' },
@@ -20,7 +21,7 @@ const SNAPSHOT_FIELD_MAP: { header: string; dbKey: string }[] = [
   { header: 'Layout Sections', dbKey: 'layout_sections' },
   { header: 'Widgets', dbKey: 'widgets' },
   { header: 'Translations', dbKey: 'translations' },
-  { header: 'PublicAccessRules', dbKey: 'public_access_rules' },
+  { header: 'Public Access Rules', dbKey: 'public_access_rules' },
   { header: 'Archived At', dbKey: 'archived_at' },
   { header: 'Author Name', dbKey: 'author_name' },
   { header: 'Category Id', dbKey: 'category_id' },
@@ -30,7 +31,23 @@ const SNAPSHOT_FIELD_MAP: { header: string; dbKey: string }[] = [
   { header: 'Updated At', dbKey: 'updated_at' },
   { header: 'Updated By Id', dbKey: 'updated_by_id' },
   { header: 'Current State', dbKey: 'current_state' },
-]
+  
+  // FIX: Added missing fields from your CSV
+  { header: 'Domain', dbKey: 'domain' },
+  { header: 'Archived In Dashboard', dbKey: 'archived_in_dashboard' },
+  { header: 'Attached Stylesheets', dbKey: 'attached_stylesheets' },
+  { header: 'Content Type Category', dbKey: 'content_type_category' },
+  { header: 'Featured Image', dbKey: 'featured_image' },
+  { header: 'Featured Image Alt Text', dbKey: 'featured_image_alt_text' },
+  { header: 'Link Rel Canonical Url', dbKey: 'link_rel_canonical_url' },
+  { header: 'Page Redirected', dbKey: 'page_redirected' },
+  { header: 'Public Access Rules Enabled', dbKey: 'public_access_rules_enabled' },
+  { header: 'Publish Immediately', dbKey: 'publish_immediately' },
+  { header: 'Subcategory', dbKey: 'subcategory' },
+  { header: 'Template Path', dbKey: 'template_path' },
+  { header: 'Use Featured Image', dbKey: 'use_featured_image' },
+  { header: 'Widget Containers', dbKey: 'widget_containers' },
+];
 
 function toCamel(label: string) {
   return label
@@ -183,13 +200,23 @@ export async function POST(request: Request) {
     if (Array.isArray(data) && data.length > 0) {
       const backupId = `csv_${contentTypeLabel}_${timestamp}`
 
-      // Create snapshot rows that exactly match DB column names expected by detect-changes and the DB
-      const snapshotRows = data.map((page: PageData) => {
+      // Deduplicate incoming data as a safety measure
+      const uniquePages = new Map<string, PageData>()
+      data.forEach((page: PageData) => {
+        const pageId = getFieldValue(page, 'Id', 'hubspot_page_id')
+        if (pageId) {
+          uniquePages.set(String(pageId), page)
+        }
+      })
+      const deduplicatedData = Array.from(uniquePages.values())
+
+      // Create snapshot rows using the deduplicated data
+      const snapshotRows = deduplicatedData.map((page: PageData) => {
         const row: Record<string, any> = {
           user_id: user.id,
           backup_id: backupId,
-          sheet_id: `csv_${contentTypeLabel}`, // Use CSV identifier instead of sheet ID
-          sheet_tab_name: 'default', // CSV files don't have tabs
+          sheet_id: backupId,
+          sheet_tab_name: 'default',
           exported_at: timestamp,
           created_at: timestamp,
         }
@@ -220,7 +247,17 @@ export async function POST(request: Request) {
       const chunks = chunkArray(snapshotRows, 500)
       for (const chunk of chunks) {
         const { error } = await supabase.from('page_snapshots').insert(chunk)
-        if (error) console.error('Failed to save page snapshots chunk:', error)
+        if (error) {
+          console.error('Failed to save page snapshots chunk:', error)
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'A database error occurred while saving the backup.',
+              details: error.message,
+            },
+            { status: 500 }
+          )
+        }
       }
     }
 
