@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { auditLogger } from '@/lib/services/audit-logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,24 +40,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Log the data access activity
-    const logData = {
-      id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      user_id: user.id,
-      action_type: 'read_csv_data',
-      resource_type: 'csv',
-      resource_id: fileName,
-      details: {
-        filename: fileName,
-        rows_count: dataRows.length,
-        headers: headers,
-        timestamp: new Date().toISOString(),
-        status: 'success',
-      },
-      created_at: new Date().toISOString(),
-    }
-
-    const { error: logError } = await supabase.from('audit_logs').insert(logData)
-    if (logError) console.error('Failed to log CSV data access:', logError)
+    await auditLogger.logCsvDataAccess(user.id, fileName, dataRows.length, headers)
 
     return NextResponse.json({
       success: true,

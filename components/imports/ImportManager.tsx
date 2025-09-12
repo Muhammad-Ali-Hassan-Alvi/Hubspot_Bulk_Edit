@@ -26,7 +26,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import DataTable from '@/components/pages/components/DataTable'
-import SheetAndTabSelector from './SheetAndTabSelector'
+import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
 import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
 import UploadingModal from '@/components/modals/UploadingModal'
 import UploadResultsModal from '@/components/modals/UploadResultsModal'
@@ -98,7 +98,7 @@ export default function ImportManager({
     selectedTab,
     sheetData,
     isLoading,
-    isLoadingTabs,
+    isLoadingTabs: _isLoadingTabs,
     isSyncing,
     syncProgress,
     importProgress,
@@ -432,19 +432,14 @@ export default function ImportManager({
               )}
 
               {user && (
-                <SheetAndTabSelector
+                <SelectSheetAndTab
                   user={user}
                   userSettings={userSettings}
                   selectedSheetId={selectedSheet}
                   setSelectedSheetId={handleSheetChange}
-                  selectedTabName={selectedTab}
-                  setSelectedTabName={handleTabChange}
-                  showNewOptions={false}
-                  onSheetChange={handleSheetChange}
-                  onTabChange={handleTabChange}
-                  sheets={sheets}
-                  isLoadingSheets={isLoading}
-                  isLoadingTabs={isLoadingTabs}
+                  onTabNameChange={handleTabChange}
+                  onTabSelectionChange={tab => handleTabChange(tab.name)}
+                  setExportingToSheets={() => {}} // Not needed for import
                 />
               )}
 

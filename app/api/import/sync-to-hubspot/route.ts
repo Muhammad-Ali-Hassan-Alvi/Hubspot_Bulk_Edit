@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { auditLogger } from '@/lib/services/audit-logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -224,19 +225,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await supabase.from('audit_logs').insert({
-      user_id: userId,
-      action_type: isPollingSync ? 'polling_sync_to_hubspot' : 'import_sync_to_hubspot',
-      resource_type: contentType,
-      details: {
-        total_items: changes && changes.length > 0 ? changes.length : importData.length,
-        synced_count: syncedCount,
-        failed_count: failedCount,
+    await auditLogger.logSyncToHubSpot(
+      userId,
+      isPollingSync ? 'polling' : 'import',
+      changes && changes.length > 0 ? changes.length : importData.length,
+      syncedCount,
+      failedCount,
+      {
+        content_type: contentType,
         errors: errors,
         is_polling_sync: isPollingSync,
         changes_count: changes?.length || 0,
-      },
-    })
+      }
+    )
 
     return NextResponse.json({
       success: true,

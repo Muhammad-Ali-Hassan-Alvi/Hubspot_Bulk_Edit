@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { useUser, useUserSettings } from '@/hooks/useUserSettings'
-import { useSheetPolling } from '@/hooks/useSheetPolling'
 import { useUploadFlow } from '@/hooks/useUploadFlow'
 
 // --- ➕ Keep your type definitions here, as they relate to the data logic ---
@@ -66,15 +65,6 @@ export const useImportManager = ({
   const { userSettings } = useUserSettings()
   const uploadFlow = useUploadFlow()
 
-  const polling = useSheetPolling({
-    sheetId: selectedSheet,
-    tabName: selectedTab,
-    userId: user?.id || '',
-    contentType,
-    intervalMs: 30000,
-    enabled: false,
-    onChangesDetected: undefined,
-  })
 
   const fetchUserSheets = useCallback(async () => {
     if (!user?.id) return
@@ -482,7 +472,7 @@ export const useImportManager = ({
     }
 
     // Check if we have changes to sync
-    const allChanges = [...changes, ...polling.changes]
+    const allChanges = [...changes]
     if (allChanges.length === 0) {
       toast({
         title: 'No changes detected',
@@ -497,7 +487,7 @@ export const useImportManager = ({
 
   const handleConfirmSync = async () => {
     const currentData = activeTab === 'csv' ? csvData : sheetData
-    const allChanges = [...changes, ...polling.changes]
+    const allChanges = [...changes]
 
     await uploadFlow.confirmChanges(async () => {
       try {
@@ -514,7 +504,6 @@ export const useImportManager = ({
         if (response.ok) {
           const data = await response.json()
           uploadFlow.completeUpload(data.synced || 0, data.failed || 0)
-          polling.clearChanges()
           setChanges([])
           setSelectedChangedRows([])
           onImportComplete?.(currentData)
@@ -535,7 +524,7 @@ export const useImportManager = ({
   // --- Derived State and Data Processing ---
   const currentData = activeTab === 'csv' ? csvData : sheetData
   const hasData = currentData && currentData.length > 0
-  const allChanges = [...changes, ...polling.changes]
+  const allChanges = [...changes]
   const hasChanges = allChanges && allChanges.length > 0
 
   const renderChangeValue = (value: any) => {

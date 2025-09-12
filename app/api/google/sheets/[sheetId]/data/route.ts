@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { auditLogger } from '@/lib/services/audit-logger'
 
 export async function POST(request: NextRequest, { params }: { params: { sheetId: string } }) {
   try {
@@ -61,17 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: { sheetId
       return item
     })
 
-    await supabase.from('audit_logs').insert({
-      user_id: user.id,
-      action_type: 'import_gsheet_data',
-      resource_type: 'google_sheet',
-      resource_id: sheetId,
-      details: {
-        sheet_id: sheetId,
-        tab_name: tabName,
-        rows_imported: processedData.length,
-      },
-    })
+    await auditLogger.logGoogleSheetsImport(user.id, sheetId, tabName, processedData.length)
 
     return NextResponse.json({
       success: true,
