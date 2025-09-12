@@ -37,7 +37,8 @@ const normalizeForComparison = (value: any): string => {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, importData, sheetId, tabName, importType = 'sheets' } = await request.json()
+    // --- FIX #1: Receive the contentType from the frontend request ---
+    const { userId, importData, contentType, importType = 'sheets' } = await request.json()
 
     if (!userId || !importData || !Array.isArray(importData) || importData.length === 0) {
       return NextResponse.json(
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (importType === 'sheets' && (!sheetId || !tabName)) {
       return NextResponse.json(
-        { success: false, error: 'Missing sheetId or tabName for Google Sheets import.' },
+        { success: false, error: 'Missing required field: contentType for CSV import.' },
         { status: 400 }
       )
     }
@@ -67,8 +68,11 @@ export async function POST(request: NextRequest) {
       .limit(1)
 
     if (importType === 'csv') {
-      query = query.like('backup_id', 'csv_%')
+      // --- FIX #3: Make the query specific to the content type ---
+      // OLD: query = query.like('backup_id', 'csv_%')
+      query = query.like('backup_id', `csv_${normalizedContentType}_%`)
     } else {
+      // Assuming sheets logic is different and might not need this change yet
       query = query.not('backup_id', 'like', 'csv_%')
     }
 
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `No database backup found to compare against. Please export your data first using ${importType === 'csv' ? 'CSV export' : 'Google Sheets export'}.`,
+          error: `No database backup found for content type "${contentType}". Please export your data first.`,
         },
         { status: 404 }
       )
@@ -103,7 +107,6 @@ export async function POST(request: NextRequest) {
     const headers = Object.keys(importData[0])
 
     const ignoreList = ['Id', 'Export Date', 'Created At', 'Updated At']
-
     const fieldsToCompare: { [key: string]: string } = {}
 
     for (const header of headers) {

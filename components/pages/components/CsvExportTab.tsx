@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { TabsContent } from '@/components/ui/tabs'
 import { DialogFooter } from '@/components/ui/dialog'
@@ -7,6 +8,7 @@ import { Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { saveAs } from 'file-saver'
 import ExportFieldsSelector from './common/ExportFieldsSelector'
+import WarningModal from '@/components/modals/WarningModal'
 import type { User } from '@supabase/supabase-js'
 
 interface CsvExportTabProps {
@@ -31,6 +33,7 @@ export default function CsvExportTab({
   user: _user,
 }: CsvExportTabProps) {
   const { toast } = useToast()
+  const [showWarningDialog, setShowWarningDialog] = useState(false)
 
   const handleExportCSV = async () => {
     try {
@@ -81,6 +84,19 @@ export default function CsvExportTab({
     }
   }
 
+  const handleShowWarning = () => {
+    setShowWarningDialog(true)
+  }
+
+  const handleCancelExport = () => {
+    setShowWarningDialog(false)
+  }
+
+  const handleConfirmExport = () => {
+    setShowWarningDialog(false)
+    handleExportCSV()
+  }
+
   return (
     <TabsContent value="csv" className="space-y-4 pt-4">
       <ExportFieldsSelector
@@ -92,13 +108,23 @@ export default function CsvExportTab({
       />
       <DialogFooter>
         <Button
-          onClick={handleExportCSV}
+          onClick={handleShowWarning}
           disabled={selectedRows.length === 0 || selectedColumns.length === 0}
         >
           <Download className="h-4 w-4 mr-2" />
           Export to CSV ({selectedRows.length} rows)
         </Button>
       </DialogFooter>
+
+      <WarningModal
+        isOpen={showWarningDialog}
+        onClose={handleCancelExport}
+        onConfirm={handleConfirmExport}
+        title="CSV Export Warning"
+        description={`Only CSV files exported from this system are supported. Please don't change your CSV file sheet name. The file should be in the format: hubspot_${contentType.toLowerCase().replace(/\s+/g, '_')}_X_items_YYYY-MM-DD.csv`}
+        confirmText="Confirm Export"
+        cancelText="Cancel"
+      />
     </TabsContent>
   )
 }
