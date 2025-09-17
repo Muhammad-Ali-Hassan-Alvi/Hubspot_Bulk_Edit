@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, forwardRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, forwardRef, useRef } from 'react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -127,50 +127,55 @@ export default function BulkEditHeader({
   const fieldsToUse = useMemo(() => {
     return dynamicFields.length > 0 ? dynamicFields : EDITABLE_FIELDS
   }, [dynamicFields])
-  // Lazy loading dropdown options - only fetch when needed
+  // Fetch all dropdown options upfront
   const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>(
     {}
   )
-  const [loadingDropdownOptions, setLoadingDropdownOptions] = useState<{ [key: string]: boolean }>(
-    {}
-  )
-  const [loadedFields, setLoadedFields] = useState<Set<string>>(new Set())
+  const [loadingAllDropdownOptions, setLoadingAllDropdownOptions] = useState(false)
+  const loadedContentTypeRef = useRef<string | null>(null)
 
-  // Fetch specific dropdown options for a field
-  const fetchFieldDropdownOptions = useCallback(
-    async (fieldKey: string) => {
-      if (loadedFields.has(fieldKey)) {
-        return
-      }
-
-      setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: true }))
-      try {
-        const response = await fetch('/api/hubspot/dropdown-options', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contentType: _contentType?.name || '',
-          }),
+  // Fetch all dropdown options when content type changes
+  useEffect(() => {
+    if (_contentType && _contentType.slug !== loadedContentTypeRef.current) {
+      setHubspotDropdownOptions({})
+      loadedContentTypeRef.current = _contentType.slug
+      
+      setLoadingAllDropdownOptions(true)
+      fetch('/api/hubspot/dropdown-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentType: _contentType?.name || '',
+          useCache: true,
+        }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.dropdownOptions) {
+            setHubspotDropdownOptions(data.dropdownOptions)
+            console.log('Fetched all dropdown options:', data.dropdownOptions)
+          } else {
+            console.error('Failed to fetch dropdown options:', data.error)
+            toast({
+              title: 'Error Loading Options',
+              description: 'Failed to load dropdown options. Some fields may be disabled.',
+              variant: 'destructive',
+            })
+          }
         })
-
-        const data = await response.json()
-        if (data.success && data.dropdownOptions[fieldKey]) {
-          setHubspotDropdownOptions(prev => ({
-            ...prev,
-            [fieldKey]: data.dropdownOptions[fieldKey],
-          }))
-          setLoadedFields(prev => new Set([...prev, fieldKey]))
-        }
-      } catch (error) {
-        console.error(`Failed to fetch dropdown options for ${fieldKey}:`, error)
-      } finally {
-        setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: false }))
-      }
-    },
-    [_contentType, loadedFields]
-  )
-
-  // No pre-loading - everything is lazy loaded when clicked
+        .catch(error => {
+          console.error('Failed to fetch dropdown options:', error)
+          toast({
+            title: 'Error Loading Options',
+            description: 'Failed to load dropdown options. Some fields may be disabled.',
+            variant: 'destructive',
+          })
+        })
+        .finally(() => {
+          setLoadingAllDropdownOptions(false)
+        })
+    }
+  }, [_contentType?.slug, _contentType?.name, toast])
 
   const fieldOptions = useMemo(() => {
     // Combine HubSpot options with local content options for better coverage
@@ -202,6 +207,9 @@ export default function BulkEditHeader({
         'Russian - ru',
       ]
     }
+    if (!combinedOptions.archivedInDashboard) {
+      combinedOptions.archivedInDashboard = ['true', 'false']
+    }
 
     if (allContent && Array.isArray(allContent)) {
       const fieldsForDropdown = [
@@ -218,6 +226,25 @@ export default function BulkEditHeader({
         'blogAuthorId',
         'redirectStyle',
         'precedence',
+        'linkRelCanonicalUrl',
+        'metaDescription',
+        'url',
+        'widgets',
+        'featuredImage',
+        'footerHtml',
+        'headHtml',
+        'publicAccessRules',
+        'slug',
+        'archivedInDashboard',
+        'archivedAt',
+        'pageTitle',
+        'pageDescription',
+        'ogTitle',
+        'ogDescription',
+        'ogImage',
+        'twitterTitle',
+        'twitterDescription',
+        'twitterImage',
       ]
 
       fieldsForDropdown.forEach(fieldKey => {
@@ -309,9 +336,8 @@ export default function BulkEditHeader({
 
   const renderField = (field: EditableField) => {
     const dynamicOptions = fieldOptions[field.key]
-    const hasHubspotOptions =
-      hubspotDropdownOptions[field.key] && hubspotDropdownOptions[field.key].length > 0
-    const isLoading = loadingDropdownOptions[field.key]
+    const hasOptions = dynamicOptions && dynamicOptions.length > 0
+      const isLoading = loadingAllDropdownOptions
 
     // Fields that should always be dropdowns
     const alwaysDropdownFields = [
@@ -325,21 +351,45 @@ export default function BulkEditHeader({
       'blogAuthorId',
       'contentGroupId',
       'state',
+      'archived',
     ]
 
+    // Special case: publishDate should always show calendar
+    if (field.key === 'publishDate') {
+      return (
+        <div className="relative z-[60]">
+          <DatePicker
+            selected={updates[field.key] ? new Date(updates[field.key]) : null}
+            onChange={(date: Date | null) => {
+              if (date) {
+                const year = date.getFullYear()
+                const month = String(date.getMonth() + 1).padStart(2, '0')
+                const day = String(date.getDate()).padStart(2, '0')
+                handleValueChange(field.key, `${year}-${month}-${day}`)
+              } else {
+                handleValueChange(field.key, '')
+              }
+            }}
+            dateFormat="MMMM d, yyyy"
+            isClearable
+            placeholderText="Select date"
+            customInput={<DatePickerCustomInput />}
+            className="w-full"
+            wrapperClassName="w-full"
+            popperClassName="z-[60]"
+            popperPlacement="bottom-start"
+          />
+        </div>
+      )
+    }
+
     // Show dropdown if we have options OR if it's a field that should always be a dropdown
-    if ((dynamicOptions && dynamicOptions.length > 0) || alwaysDropdownFields.includes(field.key)) {
+    if (hasOptions || alwaysDropdownFields.includes(field.key)) {
       return (
         <div className="space-y-1">
           <Select
             value={updates[field.key] ? String(updates[field.key]) : ''}
             onValueChange={value => handleValueChange(field.key, value)}
-            onOpenChange={open => {
-              // Fetch options when dropdown opens if not already loaded
-              if (open && !loadedFields.has(field.key)) {
-                fetchFieldDropdownOptions(field.key)
-              }
-            }}
           >
             <SelectTrigger className="bg-background">
               <SelectValue placeholder={field.label} />
@@ -349,15 +399,26 @@ export default function BulkEditHeader({
                 <SelectItem value="loading" disabled>
                   Loading options...
                 </SelectItem>
-              ) : dynamicOptions && dynamicOptions.length > 0 ? (
-                dynamicOptions.map(option => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))
+              ) : hasOptions ? (
+                dynamicOptions.map(option => {
+                  // Special handling for archivedInDashboard to show Yes/No but send true/false
+                  if (field.key === 'archivedInDashboard') {
+                    const displayValue = option === 'true' ? 'Yes' : option === 'false' ? 'No' : option
+                    return (
+                      <SelectItem key={option} value={option}>
+                        {displayValue}
+                      </SelectItem>
+                    )
+                  }
+                  return (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  )
+                })
               ) : (
                 <SelectItem value="no-options" disabled>
-                  Click to load options...
+                  No Value
                 </SelectItem>
               )}
             </SelectContent>
@@ -366,13 +427,13 @@ export default function BulkEditHeader({
       )
     }
 
-    // If no dynamic options but we have HubSpot options, show a message
-    if (hasHubspotOptions && (!dynamicOptions || dynamicOptions.length === 0)) {
+    // If no options available, show disabled field with "No Value"
+    if (!hasOptions && !isLoading) {
       return (
         <div className="space-y-1">
           <Select disabled>
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="No options available" />
+            <SelectTrigger className="bg-background opacity-50">
+              <SelectValue placeholder="No Value" />
             </SelectTrigger>
           </Select>
           <p className="text-xs text-muted-foreground">
@@ -452,11 +513,6 @@ export default function BulkEditHeader({
               <Select
                 value={updates[field.key] ? String(updates[field.key]) : ''}
                 onValueChange={value => handleValueChange(field.key, value)}
-                onOpenChange={open => {
-                  if (open && !loadedFields.has(field.key)) {
-                    fetchFieldDropdownOptions(field.key)
-                  }
-                }}
               >
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder={field.label} />
@@ -543,10 +599,10 @@ export default function BulkEditHeader({
                 onClick={fetchHubspotDropdownOptions} 
                 size="sm" 
                 variant="outline"
-                disabled={loadingDropdownOptions}
+                disabled={loadingAllDropdownOptions}
                 title="Refresh dropdown options from HubSpot"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loadingDropdownOptions ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingAllDropdownOptions ? 'animate-spin' : ''}`} />
                 Refresh Options
               </Button> */}
               <Button onClick={handleConfirm} size="sm" disabled={isPublishing}>
@@ -563,7 +619,7 @@ export default function BulkEditHeader({
             </div>
           </div>
 
-          {/* {loadingDropdownOptions && (
+          {/* {loadingAllDropdownOptions && (
             <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               Loading dropdown options from HubSpot...
@@ -571,10 +627,12 @@ export default function BulkEditHeader({
           )}
            */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
-            {loadingFields ? (
+            {loadingFields || loadingAllDropdownOptions ? (
               <div className="col-span-full flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                <span className="text-sm text-muted-foreground">Loading editable fields...</span>
+                <span className="text-sm text-muted-foreground">
+                  {loadingFields ? 'Loading editable fields...' : 'Loading dropdown options...'}
+                </span>
               </div>
             ) : fieldsToUse.length === 0 ? (
               <div className="col-span-full flex items-center justify-center py-8">

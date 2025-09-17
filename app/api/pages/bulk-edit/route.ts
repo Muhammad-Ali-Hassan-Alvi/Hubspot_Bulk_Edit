@@ -99,6 +99,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Create Supabase client
+    const supabase = createClient()
+
     const results = []
     let successful = 0
     let failed = 0
