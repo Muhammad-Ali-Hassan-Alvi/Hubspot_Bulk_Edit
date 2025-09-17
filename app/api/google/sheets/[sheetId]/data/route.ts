@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, { params }: { params: { sheetId
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${tabName}!A:Z`,
+      range: `${tabName}!A:AZ`,
     })
 
     const rows = response.data.values || []

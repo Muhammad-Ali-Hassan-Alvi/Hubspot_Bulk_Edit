@@ -4,9 +4,6 @@ import { createExportService } from '@/lib/services/export-service'
 
 export const dynamic = 'force-dynamic'
 
-
-
-
 export async function POST(request: Request) {
   try {
     const { sheetId, data, columns, tabName } = await request.json()
@@ -17,7 +14,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const user = await getAuthenticatedUser()
+    await getAuthenticatedUser()
     const exportService = await createExportService()
 
     // Export to Google Sheets using unified service
@@ -28,10 +25,7 @@ export async function POST(request: Request) {
     })
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 500 }
-      )
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 })
     }
 
     return NextResponse.json({

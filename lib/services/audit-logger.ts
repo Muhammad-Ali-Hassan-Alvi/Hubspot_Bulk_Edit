@@ -18,20 +18,22 @@ export interface AuditLogOptions {
  * Handles all audit log entries to the database
  */
 export class AuditLogger {
-  private supabase = createClient()
-
   /**
    * Log an activity to the audit logs table
    */
-  async log(data: AuditLogData, options: AuditLogOptions = {}): Promise<{ success: boolean; error?: string }> {
+  async log(
+    data: AuditLogData,
+    options: AuditLogOptions = {}
+  ): Promise<{ success: boolean; error?: string }> {
     try {
+      const supabase = createClient()
       const logEntry = {
         ...data,
         id: options.generateId !== false ? this.generateId(data.action_type) : undefined,
         created_at: options.timestamp || new Date().toISOString(),
       }
 
-      const { error } = await this.supabase.from('audit_logs').insert(logEntry)
+      const { error } = await supabase.from('audit_logs').insert(logEntry)
 
       if (error) {
         console.error('Failed to log audit activity:', error)

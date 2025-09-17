@@ -13,6 +13,7 @@ import { Download, FileSpreadsheet } from 'lucide-react'
 import CsvExportTab from './CsvExportTab'
 import GSheetsExportTab from './GSheetsExportTab'
 import type { User } from '@supabase/supabase-js'
+import { ContentTypeT } from '@/lib/content-types'
 
 interface ExportDialogProps {
   isOpen: boolean
@@ -25,7 +26,7 @@ interface ExportDialogProps {
   user: User
   userSettings: any
   setIsExportModalOpen: (open: boolean) => void
-  contentType?: string
+  contentType?: ContentTypeT
 }
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({
@@ -39,7 +40,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   user,
   userSettings,
   setIsExportModalOpen,
-  contentType = 'Landing Page',
+  contentType,
 }) => {
   const [currentTab, setCurrentTab] = useState('csv')
 
@@ -53,7 +54,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
-          <DialogTitle>Export {contentType}</DialogTitle>
+          <DialogTitle>Export {contentType?.name}</DialogTitle>
           <DialogDescription>
             Choose your export method and select from all available properties to include. This will
             export the selected rows from the current page.

@@ -1,7 +1,7 @@
 'use client'
 
+import { Search, CalendarIcon, Filter, Loader2 } from 'lucide-react'
 import { forwardRef, useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, CalendarIcon, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,8 +13,9 @@ import {
 } from '@/components/ui/select'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import { getHubSpotFilterableFields, getHeaderInfo } from '@/lib/utils'
 import React from 'react'
+import { ContentTypeT } from '@/lib/content-types'
+import { getHeaderInfo } from '@/lib/utils'
 
 // ... (interfaces and other functions remain the same) ...
 
@@ -47,7 +48,7 @@ interface FilterProps {
   ) => void
   status: string
   setStatus: (status: string) => void
-  contentType?: string
+  contentType?: ContentTypeT
   itemsPerPage?: number
   setItemsPerPage?: (itemsPerPage: number) => void
   currentPage?: number
@@ -100,8 +101,17 @@ export default function Filters({
   content = [],
   hubspotToken,
 }: FilterProps) {
-  const filterableFields = contentType ? Array.from(getHubSpotFilterableFields(contentType)) : []
-  const displayedFilterFields = filterableFields.filter(field => field !== 'state')
+  // Dynamic filterable fields from database
+  const [filterableFields, setFilterableFields] = useState<string[]>([])
+
+  // Initialize temp filter value based on current active filter
+  // const filterableFields = contentType
+  //   ? Array.from(getHubSpotFilterableFields(contentType?.name))
+  //   : []
+
+  const [loadingFields, setLoadingFields] = useState(false)
+
+  // State for the selected filter field and its value (temporary until Apply is clicked)
 
   // Set appropriate default filter field based on content type
   const getDefaultFilterField = (contentType?: string, availableFields?: string[]): string => {
@@ -127,9 +137,55 @@ export default function Filters({
   }
 
   const [selectedFilterField, setSelectedFilterField] = useState<string>(
-    getDefaultFilterField(contentType, displayedFilterFields)
+    getDefaultFilterField(contentType?.name, filterableFields)
   )
   const [tempFilterValue, setTempFilterValue] = useState<string>('')
+
+  // Fetch filterable fields from database
+  const fetchFilterableFields = async (contentType: string) => {
+    setLoadingFields(true)
+    try {
+      const params = new URLSearchParams({
+        contentType: contentType,
+        filtersEnabled: 'true', // Only get headers that have filters enabled
+      })
+
+      const response = await fetch(`/api/hubspot/headers?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        // Extract the field names (api_name) from the headers
+        const fields = data.headers.map((header: any) => header.key)
+        setFilterableFields([...fields])
+        if (fields.length > 0) {
+          setSelectedFilterField(fields[0])
+        }
+        console.log('Fetched filterable fields:', fields)
+      } else {
+        console.error('Failed to fetch filterable fields:', data.error)
+        // Set empty array if no database fields found
+        setFilterableFields(['name', 'slug', 'htmlTitle', 'language', 'state', 'publishDate'])
+      }
+    } catch (error) {
+      console.error('Error fetching filterable fields:', error)
+      // Set empty array on error
+      setFilterableFields(['name', 'slug', 'htmlTitle', 'language', 'state', 'publishDate'])
+    } finally {
+      setLoadingFields(false)
+    }
+  }
+
+  // Fetch filterable fields when content type changes
+  useEffect(() => {
+    if (contentType) {
+      // contentType is already in slug format (e.g., "landing-pages")
+      fetchFilterableFields(contentType.name)
+    } else {
+      setFilterableFields(['name', 'slug', 'htmlTitle', 'language', 'state', 'publishDate'])
+    }
+  }, [contentType])
+
+  const displayedFilterFields = filterableFields.filter(field => field !== 'state')
 
   // Lazy loading dropdown options for filters
   const [filterDropdownOptions, setFilterDropdownOptions] = useState<{ [key: string]: string[] }>(
@@ -174,11 +230,10 @@ export default function Filters({
     [hubspotToken, contentType, loadedFilterFields]
   )
 
-  // Update selected filter field when content type changes
   useEffect(() => {
     // Only update if the current selected field is not available in the new content type
     if (!displayedFilterFields.includes(selectedFilterField)) {
-      const defaultField = getDefaultFilterField(contentType, displayedFilterFields)
+      const defaultField = getDefaultFilterField(contentType?.name, displayedFilterFields)
       setSelectedFilterField(defaultField)
     }
     setTempFilterValue('')
@@ -272,8 +327,16 @@ export default function Filters({
   }
 
   const getFieldType = (fieldName: string) => {
+    // For now, we'll use simple type inference based on field name
+    // This could be enhanced later to fetch type info from the database
+    // OLD
+    // if (fieldName === 'publishDate') return 'date'
+    // if (fieldName === 'state') return 'select'
+    // if (fieldName.includes('count') || fieldName.includes('number') || fieldName.includes('id'))
+    //   return 'number'
+    // return 'string'
     if (!contentType) return 'string'
-    const headerInfo = getHeaderInfo(fieldName, contentType)
+    const headerInfo = getHeaderInfo(fieldName, contentType?.name)
     return headerInfo?.dataType || 'string'
   }
 
@@ -371,7 +434,14 @@ export default function Filters({
         {/* ... (Select for field name remains the same) ... */}
         <Select value={selectedFilterField} onValueChange={handleFilterFieldChange}>
           <SelectTrigger className="w-[150px]">
-            <SelectValue />
+            {loadingFields ? (
+              <div className="flex items-center">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <span>Loading...</span>
+              </div>
+            ) : (
+              <SelectValue />
+            )}
           </SelectTrigger>
           <SelectContent>
             {displayedFilterFields.map(fieldName => (
@@ -440,7 +510,7 @@ export default function Filters({
           </SelectContent>
         </Select>
 
-        <div className="relative !z-0">
+        <div className="relative z-[50]">
           <DatePicker
             selectsRange
             startDate={dateRange?.[0] || null}
@@ -449,9 +519,11 @@ export default function Filters({
               if (setDateRange) setDateRange(update)
             }}
             isClearable
-            placeholderText="Select Date"
-            customInput={<DatePickerCustomInput placeholder="Select Date" />}
+            placeholderText="Select Publish Date"
+            customInput={<DatePickerCustomInput placeholder="Select Publish Date" />}
             className="w-[200px]"
+            popperClassName="z-[50]"
+            popperPlacement="bottom-start"
           />
         </div>
 

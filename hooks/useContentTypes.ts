@@ -1,5 +1,5 @@
 import { useContentTypesContext } from '@/components/providers/ContentTypesProvider'
-import type { ContentType } from '@/lib/content-types'
+import type { ContentTypeT } from '@/lib/content-types'
 
 interface UseContentTypesOptions {
   forceRefresh?: boolean
@@ -7,7 +7,7 @@ interface UseContentTypesOptions {
 }
 
 interface UseContentTypesReturn {
-  contentTypes: ContentType[]
+  contentTypes: ContentTypeT[]
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
@@ -32,10 +32,9 @@ export function useContentTypesOptions(hookOptions: UseContentTypesOptions = {})
   const { contentTypes, loading, error, refetch, clearCache } = useContentTypes(hookOptions)
 
   const options = contentTypes.map(type => ({
-    value: type.value,
-    label: type.label,
-    description: type.description,
-    category: type.category,
+    id: type.id,
+    name: type.name,
+    slug: type.slug,
   }))
 
   return {

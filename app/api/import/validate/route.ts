@@ -9,28 +9,29 @@ type ValidationResult = {
   exportDetails: any
 }
 
-async function checkExportLogs(
+async function checkExportRecords(
   supabase: any,
   userId: string,
-  actionType: 'export_csv' | 'export_sheets',
-  matchingCriteria: (log: any) => boolean,
+  exportType: 'csv' | 'google-sheets',
+  matchingCriteria: (record: any) => boolean,
   limit: number = 10
-): Promise<{ success: boolean; error?: string; matchingExport?: any; exportLogs?: any[] }> {
-  const { data: exportLogs, error: logError } = await supabase
-    .from('audit_logs')
+): Promise<{ success: boolean; error?: string; matchingExport?: any; exportRecords?: any[] }> {
+  const { data: exportRecords, error: recordError } = await supabase
+    .from('user_exports')
     .select('*')
     .eq('user_id', userId)
-    .eq('action_type', actionType)
-    .eq('resource_type', 'export')
+    .eq('export_type', exportType)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (logError) {
+  if (recordError) {
     return { success: false, error: 'Unable to verify export history. Please try again.' }
   }
 
-  const matchingExport = exportLogs?.find(matchingCriteria)
-  return { success: true, matchingExport, exportLogs }
+  console.log('Found export records:', exportRecords)
+  const matchingExport = exportRecords?.find(matchingCriteria)
+  console.log('Matching export found:', matchingExport)
+  return { success: true, matchingExport, exportRecords }
 }
 
 export async function POST(request: NextRequest) {
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
           exportDetails: null,
         }
       } else {
-        const [, extractedContentType, , exportDate] = match
+        const [, extractedContentType] = match
         const normalizedExtractedType = normalizeContentType.forComparison(extractedContentType)
         const normalizedSelectedType = normalizeContentType.forComparison(contentType)
 
@@ -85,19 +86,41 @@ export async function POST(request: NextRequest) {
             exportDetails: null,
           }
         } else {
-          const result = await checkExportLogs(
+          // Convert content type name to ID for comparison
+          const { data: contentTypeData, error: contentTypeError } = await supabase
+            .from('content_types')
+            .select('id')
+            .eq('slug', contentType)
+            .single()
+
+          if (contentTypeError || !contentTypeData) {
+            return NextResponse.json(
+              { success: false, error: `Invalid content type: ${contentType}` },
+              { status: 400 }
+            )
+          }
+
+          const contentTypeId = contentTypeData.id
+
+          const result = await checkExportRecords(
             supabase,
             user.id,
-            'export_csv',
-            log => {
-              const details = log.details
-              if (!details || !details.filename) return false
-              const logFilename = details.filename
-              const isExactMatch = logFilename === fileName
-              const isSimilarMatch =
-                logFilename.includes(fileName.split('.')[0]) ||
-                fileName.includes(logFilename.split('.')[0])
-              return isExactMatch || isSimilarMatch
+            'csv',
+            record => {
+              // For CSV validation, match by content type and export type
+              // Since we don't have filename field, we'll match by content type
+              const recordContentType = record.content_type_id
+              const contentTypeMatches = recordContentType === contentTypeId
+
+              console.log('CSV validation check:', {
+                recordContentType,
+                contentType,
+                contentTypeId,
+                contentTypeMatches,
+                record,
+              })
+
+              return contentTypeMatches
             },
             10
           )
@@ -108,17 +131,24 @@ export async function POST(request: NextRequest) {
               error: result.error || 'Unable to verify export history.',
               exportDetails: null,
             }
-          } else {
+          } else if (result.matchingExport) {
             validationResult = {
               isValid: true,
               error: '',
               exportDetails: {
                 exportType: 'csv',
                 contentType: normalizeContentType.toDisplayFormat(extractedContentType),
-                exportDate,
+                exportDate: result.matchingExport.created_at,
                 fileName,
                 tabId: '0',
               },
+            }
+          } else {
+            validationResult = {
+              isValid: false,
+              error:
+                'No export found for this CSV file. Please export the data first before importing.',
+              exportDetails: null,
             }
           }
         }
@@ -134,18 +164,44 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const result = await checkExportLogs(
+      // Convert content type name to ID for comparison
+      const { data: contentTypeData, error: contentTypeError } = await supabase
+        .from('content_types')
+        .select('id')
+        .eq('slug', contentType)
+        .single()
+
+      if (contentTypeError || !contentTypeData) {
+        return NextResponse.json(
+          { success: false, error: `Invalid content type: ${contentType}` },
+          { status: 400 }
+        )
+      }
+
+      const contentTypeId = contentTypeData.id
+
+      const result = await checkExportRecords(
         supabase,
         user.id,
-        'export_sheets',
-        log => {
-          const details = log.details
-          if (!details || !details.sheet_url) return false
-          const sheetMatches = details.sheet_url.includes(sheetId)
-          const exportedContentType = details.content_type
-          const contentTypeMatches =
-            normalizeContentType.forComparison(exportedContentType) ===
-            normalizeContentType.forComparison(contentType)
+        'google-sheets',
+        record => {
+          // Check if sheetId and content type match
+          const recordSheetId = record.sheet_id
+          const recordContentType = record.content_type_id
+          const sheetMatches = recordSheetId === sheetId
+          const contentTypeMatches = recordContentType === contentTypeId
+
+          console.log('Validation check:', {
+            recordSheetId,
+            recordContentType,
+            sheetId,
+            contentType,
+            contentTypeId,
+            sheetMatches,
+            contentTypeMatches,
+            record,
+          })
+
           return sheetMatches && contentTypeMatches
         },
         20
@@ -171,15 +227,12 @@ export async function POST(request: NextRequest) {
           },
         }
       } else {
-        const sheetExports = result.exportLogs?.filter(log => {
-          const details = log.details
-          return details && details.sheet_url && details.sheet_url.includes(sheetId)
+        const sheetExports = result.exportRecords?.filter(record => {
+          return record.sheet_id === sheetId
         })
 
         if (sheetExports && sheetExports.length > 0) {
-          const exportedContentTypes = sheetExports
-            .map(log => log.details.content_type)
-            .join(', ')
+          const exportedContentTypes = sheetExports.map(record => record.content_type_id).join(', ')
           validationResult = {
             isValid: false,
             error: `Content type mismatch. This sheet was exported for "${exportedContentTypes}" but you selected "${contentType}".`,

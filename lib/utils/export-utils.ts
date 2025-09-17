@@ -1,23 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 
-/**
- * Convert header label to camelCase database key
- * This replaces the hardcoded SNAPSHOT_FIELD_MAP with dynamic mapping
- */
-function headerToDbKey(header: string): string {
-  return header
-    .split(' ')
-    .map((word, i) =>
-      i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    )
-    .join('')
-}
-
 export type PageData = Record<string, any>
 
-/**
- * Convert label to camelCase
- */
 export function toCamel(label: string): string {
   return label
     .split(/[_\s]+/)
@@ -27,9 +11,6 @@ export function toCamel(label: string): string {
     .join('')
 }
 
-/**
- * Convert string to snake_case
- */
 export function toSnake(s: string): string {
   return s
     .replace(/\s+/g, '_')
@@ -39,9 +20,6 @@ export function toSnake(s: string): string {
     .replace(/^_/, '')
 }
 
-/**
- * Try to parse JSON from string value
- */
 export function tryParseJSON(value: any): any {
   if (typeof value !== 'string') return value
   const trimmed = value.trim()
@@ -58,9 +36,6 @@ export function tryParseJSON(value: any): any {
   return value
 }
 
-/**
- * Normalize cell value for export
- */
 export function normalizeCellValue(v: any): any {
   if (v === undefined || v === null) return null
   if (typeof v === 'string') {
@@ -73,9 +48,6 @@ export function normalizeCellValue(v: any): any {
   return v
 }
 
-/**
- * Get field value from page data with multiple fallback strategies
- */
 export function getFieldValue(page: PageData, label: string, key: string): any {
   if (!page) return null
   const candidates = [
@@ -95,18 +67,158 @@ export function getFieldValue(page: PageData, label: string, key: string): any {
   return null
 }
 
-/**
- * Chunk array into smaller arrays to avoid huge batch inserts
- */
 export function chunkArray<T>(arr: T[], size = 500): T[][] {
   const out: T[][] = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
 }
 
-/**
- * Save structured backup to page_snapshots table
- */
+let headerDefinitionsCache: Record<string, string> | null = null
+
+async function getHeaderDefinitions(supabase: any): Promise<Record<string, string>> {
+  if (headerDefinitionsCache) {
+    return headerDefinitionsCache
+  }
+
+  const { data: headerDefs, error } = await supabase
+    .from('header_definitions')
+    .select('api_name, display_name')
+
+  if (error) {
+    return {}
+  }
+
+  // Get actual table schema dynamically - use raw SQL query
+  const { data: tableColumns, error: columnError } = await supabase
+    .from('information_schema.columns')
+    .select('column_name')
+    .eq('table_name', 'page_snapshots')
+    .eq('table_schema', 'public')
+
+  let availableColumns: Set<string>
+
+  if (columnError || !tableColumns) {
+    // Fallback to hardcoded columns if query fails
+    availableColumns = new Set([
+      'user_id',
+      'backup_id',
+      'exported_at',
+      'created_at',
+      'sheet_id',
+      'sheet_tab_name',
+      'hubspot_page_id',
+      'url',
+      'name',
+      'slug',
+      'state',
+      'html_title',
+      'meta_description',
+      'published',
+      'archived_at',
+      'author_name',
+      'category_id',
+      'content_type',
+      'created_by_id',
+      'publish_date',
+      'updated_at',
+      'updated_by_id',
+      'current_state',
+      'widgets',
+      'layout_sections',
+      'translations',
+      'public_access_rules',
+      'archived_in_dashboard',
+      'attached_stylesheets',
+      'content_type_category',
+      'featured_image',
+      'featured_image_alt_text',
+      'link_rel_canonical_url',
+      'page_redirected',
+      'public_access_rules_enabled',
+      'publish_immediately',
+      'subcategory',
+      'template_path',
+      'use_featured_image',
+      'widget_containers',
+      'domain',
+      'campaign',
+      'page_expiry_enabled',
+    ])
+  } else {
+    // Extract column names from the table info
+    availableColumns = new Set(tableColumns.map((col: any) => col.column_name))
+  }
+
+  const mapping: Record<string, string> = {}
+  for (const def of headerDefs || []) {
+    const columnName = def.display_name
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+
+    if (availableColumns.has(columnName)) {
+      mapping[def.api_name] = columnName
+    }
+  }
+
+  // Add manual mappings for fields that don't exist in header_definitions
+  mapping['id'] = 'hubspot_page_id'
+  mapping['Id'] = 'hubspot_page_id'
+  mapping['contentType'] = 'content_type'
+  mapping['Content Type'] = 'content_type'
+  mapping['pageExpiryEnabled'] = 'page_expiry_enabled'
+  mapping['Page Expiry Enabled'] = 'page_expiry_enabled'
+
+  // Add mappings for CSV display names (with spaces) to snake_case columns
+  const csvFieldMappings: Record<string, string> = {
+    'Archived At': 'archived_at',
+    'Archived In Dashboard': 'archived_in_dashboard',
+    'Attached Stylesheets': 'attached_stylesheets',
+    'Author Name': 'author_name',
+    Campaign: 'campaign',
+    'Category Id': 'category_id',
+    'Content Type Category': 'content_type_category',
+    'Created At': 'created_at',
+    'Created By Id': 'created_by_id',
+    'Current State': 'current_state',
+    Domain: 'domain',
+    'Featured Image': 'featured_image',
+    'Featured Image Alt Text': 'featured_image_alt_text',
+    'Html Title': 'html_title',
+    'Layout Sections': 'layout_sections',
+    'Link Rel Canonical Url': 'link_rel_canonical_url',
+    'Meta Description': 'meta_description',
+    Name: 'name',
+    'Page Redirected': 'page_redirected',
+    'Public Access Rules': 'public_access_rules',
+    'Public Access Rules Enabled': 'public_access_rules_enabled',
+    'Publish Date': 'publish_date',
+    'Publish Immediately': 'publish_immediately',
+    Published: 'published',
+    Slug: 'slug',
+    State: 'state',
+    Subcategory: 'subcategory',
+    'Template Path': 'template_path',
+    Translations: 'translations',
+    'Updated At': 'updated_at',
+    'Updated By Id': 'updated_by_id',
+    Url: 'url',
+    'Use Featured Image': 'use_featured_image',
+    'Widget Containers': 'widget_containers',
+    Widgets: 'widgets',
+  }
+
+  // Add CSV field mappings to the main mapping
+  for (const [displayName, columnName] of Object.entries(csvFieldMappings)) {
+    if (availableColumns.has(columnName)) {
+      mapping[displayName] = columnName
+    }
+  }
+
+  headerDefinitionsCache = mapping
+  return mapping
+}
+
 export async function saveStructuredBackup(
   data: PageData[],
   userId: string,
@@ -114,46 +226,61 @@ export async function saveStructuredBackup(
   sheetId?: string,
   tabName?: string
 ): Promise<void> {
-  if (!Array.isArray(data) || data.length === 0) return
+  if (!Array.isArray(data) || data.length === 0) {
+    return
+  }
 
   const supabase = createClient()
   const timestamp = new Date().toISOString()
 
-  // Create snapshot rows that store data in page_content JSONB field
+  const mapping = await getHeaderDefinitions(supabase)
+
   const snapshotRows = data.map((page: PageData) => {
-    const pageContent: Record<string, any> = {}
-    
-    // Extract data dynamically from all available fields in the page data
+    const row: Record<string, any> = {
+      user_id: userId,
+      backup_id: `${backupId}_${Date.now()}`,
+      exported_at: timestamp,
+      created_at: timestamp,
+    }
+
     for (const [header, value] of Object.entries(page)) {
-      const dbKey = headerToDbKey(header)
-      
-      // normalize published -> boolean
-      if (dbKey === 'published') {
-        if (typeof value === 'string') {
-          pageContent[dbKey] =
-            value.toUpperCase() === 'TRUE'
-              ? true
-              : value === '' || value.toUpperCase() === 'EMPTY'
-                ? null
-                : null
+      const columnName = mapping[header]
+
+      if (columnName) {
+        // Handle boolean fields that might be empty strings
+        const booleanFields = [
+          'published',
+          'archived_in_dashboard',
+          'page_redirected',
+          'public_access_rules_enabled',
+          'publish_immediately',
+          'use_featured_image',
+          'page_expiry_enabled',
+        ]
+
+        if (booleanFields.includes(columnName)) {
+          if (typeof value === 'string') {
+            const trimmed = value.trim().toUpperCase()
+            if (trimmed === 'TRUE' || trimmed === '1') {
+              row[columnName] = true
+            } else if (trimmed === 'FALSE' || trimmed === '0') {
+              row[columnName] = false
+            } else if (trimmed === '' || trimmed === 'EMPTY') {
+              row[columnName] = null
+            } else {
+              row[columnName] = null
+            }
+          } else if (typeof value === 'boolean') {
+            row[columnName] = value
+          } else {
+            row[columnName] = null
+          }
         } else {
-          pageContent[dbKey] = value ?? null
+          row[columnName] = value ?? null
         }
-      } else {
-        pageContent[dbKey] = value ?? null
       }
     }
 
-    // Create the database row with proper structure
-    const row: Record<string, any> = {
-      user_id: userId,
-      backup_id: backupId,
-      exported_at: timestamp,
-      created_at: timestamp,
-      page_content: pageContent, // Store all field data in JSONB field
-    }
-
-    // Add sheet-specific fields if provided
     if (sheetId) {
       row.sheet_id = sheetId
       row.sheet_tab_name = tabName ?? 'default'
@@ -162,10 +289,37 @@ export async function saveStructuredBackup(
     return row
   })
 
-  // Insert in chunks to avoid huge payloads
   const chunks = chunkArray(snapshotRows, 500)
-  for (const chunk of chunks) {
-    const { error } = await supabase.from('page_snapshots').insert(chunk)
-    if (error) console.error('Failed to save page snapshots chunk:', error)
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]
+
+    // For each row, first delete any existing record with the same hubspot_page_id
+    // then insert the new record
+    for (const row of chunk) {
+      // Only delete if this is an existing page + sheet + tab combination
+      // Check if a record already exists for this hubspot_page_id + sheet_id + sheet_tab_name
+      const { data: existingRecord } = await supabase
+        .from('page_snapshots')
+        .select('id')
+        .eq('hubspot_page_id', row.hubspot_page_id)
+        .eq('sheet_id', row.sheet_id)
+        .eq('sheet_tab_name', row.sheet_tab_name)
+        .eq('user_id', row.user_id)
+        .single()
+
+      // If record exists, delete it first
+      if (existingRecord) {
+        await supabase.from('page_snapshots').delete().eq('id', existingRecord.id)
+      }
+
+      // Insert the new record
+      const { error } = await supabase.from('page_snapshots').insert([row])
+
+      if (error) {
+        console.error('Failed to save page snapshot:', error)
+        throw error
+      }
+    }
   }
 }

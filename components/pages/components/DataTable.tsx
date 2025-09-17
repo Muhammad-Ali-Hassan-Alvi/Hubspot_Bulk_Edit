@@ -44,10 +44,6 @@ interface DataTableProps {
   dropdownOptions?: { [key: string]: string[] }
   editableTextFields?: Set<string>
   onColumnReorder?: (newOrder: string[]) => void
-  topBar?: boolean
-  isExportModalOpen?: boolean
-  onExportModalOpenChange?: (open: boolean) => void
-  exportModalContent?: React.ReactNode
   setItemsPerPage?: (itemsPerPage: number) => void
   showPagination?: boolean
   customColumnHeaders?: { [key: string]: string }
@@ -365,18 +361,14 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
         {filteredContent.length > 0 ? (
           <div className="space-y-4 w-full">
             <div className="border rounded-lg w-full overflow-hidden">
-              {/* BRO: This is your new top scrollbar. */}
               <div
                 ref={topScrollRef}
                 onScroll={() => handleScroll('top')}
                 className="overflow-x-auto overflow-y-hidden"
               >
-                {/* This inner div has the same width as the table, creating the scroll space. */}
                 <div style={{ width: tableWidth, height: '1px' }}></div>
               </div>
 
-              {/* BRO: This is now the main table container. I've added the ref, scroll handler,
-                  and combined overflow properties here for better control. */}
               <div
                 ref={tableContainerRef}
                 onScroll={() => handleScroll('bottom')}
@@ -384,12 +376,11 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
               >
                 <table
                   className="text-sm text-left table-fixed relative"
-                  // BRO: Set the minWidth of the table to ensure it expands and causes overflow
                   style={{ minWidth: tableWidth }}
                 >
                   <thead className="border-b sticky top-0 bg-background z-30">
                     <tr>
-                      <th className="px-4 py-3 sticky left-0 bg-background z-50 w-12">
+                      <th className="px-4 py-3 sticky left-0 bg-background z-50 w-12 border-r border-border">
                         <Checkbox
                           checked={
                             filteredContent.length > 0 &&
@@ -406,7 +397,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                           onDragOver={e => handleDragOver(e, key)}
                           onDrop={e => handleDrop(e, key)}
                           className={cn(
-                            'px-4 py-3 font-medium whitespace-nowrap relative cursor-pointer select-none transition-all group',
+                            'px-4 py-3 font-medium whitespace-nowrap relative cursor-pointer select-none transition-all group border-r border-border',
                             key === 'name'
                               ? 'sticky left-12 bg-background z-50 shadow-[2px_0_4px_rgba(0,0,0,0.1)]'
                               : 'z-20',
@@ -453,14 +444,8 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                   </thead>
                   <tbody className="divide-y">
                     {sortedContent().map(item => (
-                      <tr
-                        key={item.id}
-                        className={cn(
-                          'group',
-                          selectedRows.includes(item.id) ? 'bg-muted/50' : 'hover:bg-muted/50'
-                        )}
-                      >
-                        <td className="px-4 py-2 sticky left-0 z-40 bg-background group-hover:bg-muted/50 w-12">
+                      <tr key={item.id} className="group hover:bg-muted/50">
+                        <td className="px-4 py-2 sticky left-0 z-50 w-12 bg-card border-r border-border">
                           <Checkbox
                             checked={selectedRows.includes(item.id)}
                             onCheckedChange={() => onSelectRow(item.id)}
@@ -470,10 +455,10 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                           <td
                             key={key}
                             className={cn(
-                              'px-4 py-2 truncate relative',
+                              'px-4 py-2 truncate relative border-r border-border',
                               key === 'name'
-                                ? 'sticky left-12 z-40 bg-background font-semibold shadow-[2px_0_4px_rgba(0,0,0,0.1)] group-hover:bg-muted/50'
-                                : 'z-10'
+                                ? 'sticky left-12 z-40 font-semibold shadow-[2px_0_4px_rgba(0,0,0,0.1)] bg-card'
+                                : 'bg-background z-10 group-hover:bg-muted/50'
                             )}
                             style={{ width: getColumnWidth(key) }}
                             title={String(item.exportHeaders?.[key] || item[key] || '')}

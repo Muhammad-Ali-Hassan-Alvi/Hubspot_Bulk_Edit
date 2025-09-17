@@ -79,7 +79,6 @@ export default function AuditLogs({ user, onExport }: AuditLogsProps) {
 
       if (error) throw error
       setLogs(data || [])
-      console.log('umar data is ', data)
       setFilteredLogs(data || [])
     } catch (error) {
       console.error('Error loading audit logs:', error)

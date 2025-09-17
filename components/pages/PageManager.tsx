@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/select'
 import 'react-datepicker/dist/react-datepicker.css'
 import { useContentTypes } from '@/hooks/useContentTypes'
-
 import CsvExportTab from './components/CsvExportTab'
 import GSheetsExportTab from './components/GSheetsExportTab'
 import Filters from './components/Filters'
@@ -42,6 +41,8 @@ const formatColumnLabel = (key: string) => {
 }
 
 export default function PageManager({ user, userSettings }: PageManagerProps) {
+  // Fetch dynamic content types
+  const { contentTypes } = useContentTypes()
   const [content, setContent] = useState<HubSpotContent[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -53,7 +54,11 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   const [createdAtFilter, setCreatedAtFilter] = useState('')
   const [dynamicFilters, setDynamicFilters] = useState<{ [key: string]: string }>({})
   const [refreshing, setRefreshing] = useState(false)
-  const [contentType, setContentType] = useState('landing-pages')
+  const initialContentType =
+    contentTypes && contentTypes.length > 0
+      ? contentTypes.find(ct => ct.slug === 'landing-pages')
+      : undefined
+  const [contentType, setContentType] = useState(initialContentType)
   const [status, setStatus] = useState('all')
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
@@ -85,26 +90,9 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   const scrollPositionRef = useRef<number>(0)
   const dataTableRef = useRef<HTMLDivElement>(null)
 
-  // Fetch dynamic content types
-  const { contentTypes } = useContentTypes()
-
   const totalPages = Math.ceil(totalItems / itemsPerPage)
-  const currentContentTypeLabel =
-    contentTypes.find(ct => ct.value === contentType)?.label || 'Landing Pages'
+  const currentContentTypeLabel = contentType?.name || 'Landing Pages'
 
-  // Convert API contentType to HubSpot content type format
-  const hubSpotContentType = currentContentTypeLabel
-
-  // Get the content type of selected items for bulk editing
-  // const getSelectedItemsContentType = () => {
-  //   if (selectedRows.length === 0) return null
-
-  //   // Get the content type of the first selected item
-  //   const firstSelectedItem = content.find(item => item.id === selectedRows[0])
-  //   return firstSelectedItem?.contentType || null
-  // }
-
-  // const selectedItemsContentType = getSelectedItemsContentType()
   const hubspotToken = userSettings?.hubspot_access_token || userSettings?.hubspot_token_encrypted
 
   // Search handlers
@@ -180,7 +168,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             hubspotToken: hubspotToken,
-            contentType: contentType,
+            contentType: contentType?.slug ?? 'landing-pages',
             limit: 100, // Back to 100 for API limit
             after: after,
           }),
@@ -251,7 +239,8 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   )
 
   const handleContentTypeChange = (newContentType: string) => {
-    setContentType(newContentType)
+    const newlySelectedContentType = contentTypes.find(ct => ct.id.toString() === newContentType)
+    setContentType(newlySelectedContentType)
     setContent([])
     setTotalItems(0)
     setCurrentPage(1)
@@ -275,7 +264,10 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     if (hubspotToken && contentType) {
       loadContent(1, [null], true)
     }
-  }, [hubspotToken, contentType, loadContent])
+    if (contentTypes.length > 0 && !contentType) {
+      setContentType(contentTypes.find(ct => ct.slug === 'landing-pages'))
+    }
+  }, [hubspotToken, contentType, contentTypes, loadContent])
 
   // Update the shared header last-updated span when data loads
   useEffect(() => {
@@ -831,14 +823,14 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             </CardDescription>
           </div>
           <div className="flex items-center gap-4">
-            <Select value={contentType} onValueChange={handleContentTypeChange}>
+            <Select value={contentType?.id.toString()} onValueChange={handleContentTypeChange}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Select content type" />
               </SelectTrigger>
               <SelectContent>
                 {contentTypes.map(contentTypeOption => (
-                  <SelectItem key={contentTypeOption.value} value={contentTypeOption.value}>
-                    {contentTypeOption.label}
+                  <SelectItem key={contentTypeOption.id} value={contentTypeOption.id.toString()}>
+                    {contentTypeOption.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -854,18 +846,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            {/* <div className="text-sm text-muted-foreground">
-              {currentSearchTerm ? (
-                <>
-                  Search results for "{currentSearchTerm}" ({searchTotal} items)
-                </>
-              ) : (
-                <>
-                  Showing {currentContentTypeLabel} (
-                  {contentCounts[currentContentTypeLabel] || totalItems} items)
-                </>
-              )}
-            </div> */}
             {hubspotToken && (
               <HubSpotSearch
                 hubspotToken={hubspotToken}
@@ -896,7 +876,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             setDynamicFilters={setDynamicFilters}
             status={status}
             setStatus={setStatus}
-            contentType={hubSpotContentType}
+            contentType={contentType}
             dateRange={dateRange}
             setDateRange={setDateRange}
             content={content}
@@ -918,7 +898,9 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           isExportModalOpen={isExportModalOpen}
           onExportModalOpenChange={handleModalOpenChange}
           onSelectAll={handleSelectAll}
-          currentContentTypeLabel={currentSearchTerm ? 'Search Results' : currentContentTypeLabel}
+          currentContentTypeLabel={
+            currentSearchTerm ? 'Search Results' : currentContentTypeLabel.toString()
+          }
           exportModalContent={
             <Tabs defaultValue="csv" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -936,7 +918,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
                 selectedRows={selectedRows}
                 content={content}
                 setIsExportModalOpen={setIsExportModalOpen}
-                contentType={hubSpotContentType}
+                contentType={contentType}
                 user={user}
               />
               <GSheetsExportTab
@@ -947,7 +929,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
                 selectedRows={selectedRows}
                 content={content}
                 user={user}
-                contentType={hubSpotContentType}
+                contentType={contentType}
               />
             </Tabs>
           }
@@ -958,7 +940,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         <>
           <BulkEditHeader
             selectedRowCount={selectedRows.length}
-            contentType={currentContentTypeLabel}
+            contentType={contentType}
             onConfirm={handleBulkEditConfirm}
             refreshCurrentPage={refreshCurrentPage}
             onClearSelection={handleClearSelection}
@@ -970,7 +952,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
       <DataTable
         setItemsPerPage={setItemsPerPage}
-        topBar={true}
         ref={dataTableRef}
         filteredContent={filteredContent}
         displayColumns={displayColumns}
@@ -982,7 +963,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         loading={loading}
         loadingMore={loadingMore}
         hasMore={hasMore}
-        currentContentTypeLabel={currentContentTypeLabel}
+        currentContentTypeLabel={currentContentTypeLabel.toString()}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
         onLoadMore={loadMore}
@@ -991,40 +972,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         dropdownOptions={{}}
         editableTextFields={new Set()}
         onColumnReorder={handleColumnReorder}
-        isExportModalOpen={isExportModalOpen}
-        onExportModalOpenChange={handleModalOpenChange}
-        exportModalContent={
-          <Tabs defaultValue="csv" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-content">
-              <TabsTrigger value="csv" className="flex items-center gap-2">
-                <Download className="h-4 w-4" /> Export as CSV
-              </TabsTrigger>
-              <TabsTrigger value="sheets" className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4" /> Export to Google Sheets
-              </TabsTrigger>
-            </TabsList>
-            <CsvExportTab
-              availableColumns={availableColumns}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              selectedRows={selectedRows}
-              content={content}
-              setIsExportModalOpen={setIsExportModalOpen}
-              contentType={hubSpotContentType}
-              user={user}
-            />
-            <GSheetsExportTab
-              userSettings={userSettings}
-              availableColumns={availableColumns}
-              selectedColumns={selectedColumns}
-              setSelectedColumns={setSelectedColumns}
-              selectedRows={selectedRows}
-              content={content}
-              user={user}
-              contentType={hubSpotContentType}
-            />
-          </Tabs>
-        }
         showPagination={totalItems > 0}
       />
     </div>

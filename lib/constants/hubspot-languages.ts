@@ -1,10 +1,10 @@
 /**
  * Comprehensive HubSpot language list
  * This is the official list of language codes supported by HubSpot
- * 
+ *
  * Note: This list is comprehensive and includes all possible language codes
  * that HubSpot supports, including regional variants (e.g., en-us, en-gb)
- * 
+ *
  * Alternative: We could fetch languages dynamically from HubSpot API or
  * use a more general language API, but this ensures we have all HubSpot-specific codes
  */

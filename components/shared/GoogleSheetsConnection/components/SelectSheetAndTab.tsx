@@ -41,6 +41,9 @@ interface SelectSheetAndTabProps {
   setExportingToSheets: (exporting: boolean) => void
   selectedSheetId: string
   setSelectedSheetId: (sheetId: string) => void
+  showNewOptions?: boolean // Add prop to control visibility of "Create New" options
+  sheets?: GoogleSheet[] // Optional sheets data from parent
+  isLoadingSheets?: boolean // Optional loading state from parent
 }
 
 const SelectSheetAndTab = ({
@@ -52,6 +55,9 @@ const SelectSheetAndTab = ({
   setSelectedSheetId,
   // onConnectionUpdate = () => {},
   setExportingToSheets,
+  showNewOptions = true, // Default to true for backward compatibility
+  sheets: parentSheets,
+  isLoadingSheets: parentIsLoadingSheets,
 }: SelectSheetAndTabProps) => {
   const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false)
   const [sheets, setSheets] = useState<GoogleSheet[]>([])
@@ -64,6 +70,13 @@ const SelectSheetAndTab = ({
   const [saving, setSaving] = useState(false)
   const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false)
 
+  // Use parent sheets data if available, otherwise use local state
+  const displaySheets = parentSheets || sheets
+  const isLoadingSheets =
+    parentIsLoadingSheets !== undefined ? parentIsLoadingSheets : fetchingSheets
+
+  // Debug logging (only when values change) - REMOVED TO PREVENT EXCESSIVE RE-RENDERS
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -74,43 +87,55 @@ const SelectSheetAndTab = ({
     }
   }, [selectedSheetId, selectedTabId, setExportingToSheets])
 
-  const loadSheets = useCallback(async () => {
-    setFetchingSheets(true)
-    try {
-      const response = await fetch('/api/google/sheets')
-      if (response.status === 409) {
+  const loadSheets = useCallback(
+    async (forceRefresh = false) => {
+      // Prevent multiple simultaneous loads, but allow force refresh
+      if (fetchingSheets || (!forceRefresh && sheets.length > 0)) return
+
+      setFetchingSheets(true)
+      try {
+        const response = await fetch('/api/google/sheets')
+        if (response.status === 409) {
+          toast({
+            title: 'Google Sheets Not Connected',
+            description: 'Please connect your Google Sheets account first.',
+            variant: 'destructive',
+          })
+          setSheets([]) // Clear any existing sheets
+          return
+        }
+
+        const data = await response.json()
+        if (data.success && data.sheets) {
+          setSheets(data.sheets)
+        } else if (data.sheets) {
+          setSheets(data.sheets)
+        } else if (data.error) {
+          throw new Error(data.error)
+        } else {
+          setSheets([])
+        }
+      } catch (error) {
+        console.error('Error loading sheets:', error)
         toast({
           title: 'Error',
-          description: 'Google Sheets not connected.',
+          description: error instanceof Error ? error.message : 'Failed to fetch Google Sheets.',
           variant: 'destructive',
         })
-        return
+        setSheets([]) // Clear sheets on error
+      } finally {
+        setFetchingSheets(false)
       }
-
-      const data = await response.json()
-      if (data.success && data.sheets) {
-        setSheets(data.sheets)
-      } else if (data.sheets) {
-        setSheets(data.sheets)
-      } else if (data.error) {
-        throw new Error(data.error)
-      }
-    } catch (error) {
-      console.error('Error loading sheets:', error)
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to fetch Google Sheets.',
-        variant: 'destructive',
-      })
-    }
-    setFetchingSheets(false)
-  }, [toast])
+    },
+    [toast, fetchingSheets, sheets.length]
+  )
 
   useEffect(() => {
-    if (userSettings?.google_access_token) {
+    // Load sheets if parent data is not provided
+    if (!parentSheets) {
       loadSheets()
     }
-  }, [userSettings?.google_access_token, loadSheets])
+  }, [userSettings?.google_access_token, loadSheets, parentSheets])
 
   const loadTabs = async (sheetId: string) => {
     setFetchingTabs(true)
@@ -182,9 +207,7 @@ const SelectSheetAndTab = ({
 
         // If we created a new sheet or saved a new tab, refresh the sheets list
         if (targetSheetId === 'new' || (tabNameToSave && finalSheetId)) {
-          setFetchingSheets(true)
-          await loadSheets()
-          setFetchingSheets(false)
+          await loadSheets(true)
 
           // If we created a new sheet, select it
           if (targetSheetId === 'new') {
@@ -288,7 +311,7 @@ const SelectSheetAndTab = ({
   }
 
   const handleSheetSelectionWithModal = (value: string) => {
-    if (value === 'new') {
+    if (value === 'new' && showNewOptions) {
       setIsNewSheetModalOpen(true)
       handleSheetSelection('') // Reset the selection
       setSaving(false) // Reset saving state
@@ -299,7 +322,7 @@ const SelectSheetAndTab = ({
   }
 
   const handleTabSelectionWithModal = (value: string) => {
-    if (value === 'new') {
+    if (value === 'new' && showNewOptions) {
       setIsNewTabModalOpen(true)
       setSelectedTabId('') // Reset the selection
       setSaving(false) // Reset saving state
@@ -339,9 +362,7 @@ const SelectSheetAndTab = ({
       })
 
       // Refresh the sheets list to include the new sheet
-      setFetchingSheets(true)
-      await loadSheets()
-      setFetchingSheets(false)
+      await loadSheets(true)
 
       // Select the newly created sheet
       setSelectedSheetId(createData.sheet.id)
@@ -365,7 +386,9 @@ const SelectSheetAndTab = ({
       <div className="space-y-4 p-4 border rounded-lg bg-content">
         <div className="flex items-center gap-2">
           <FileSpreadsheet className="h-4 w-4" />
-          <Label className="text-sm font-medium">Select Existing Google Sheet or Create New</Label>
+          <Label className="text-sm font-medium">
+            {showNewOptions ? 'Select Existing Google Sheet or Create New' : 'Select Google Sheet'}
+          </Label>
         </div>
 
         <div className="space-y-3">
@@ -375,21 +398,32 @@ const SelectSheetAndTab = ({
               <Select
                 value={selectedSheetId}
                 onValueChange={handleSheetSelectionWithModal}
-                disabled={fetchingSheets}
+                disabled={false}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
-                    placeholder={fetchingSheets ? 'Fetching sheets...' : 'Choose a sheet...'}
-                  />
+                    placeholder={
+                      isLoadingSheets
+                        ? 'Fetching sheets...'
+                        : displaySheets.length > 0
+                          ? 'Choose a sheet...'
+                          : 'No sheets available'
+                    }
+                  >
+                    {selectedSheetId &&
+                      displaySheets.find(sheet => sheet.id === selectedSheetId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Plus className="h-3 w-3" />
-                      Create New Sheet
-                    </div>
-                  </SelectItem>
-                  {fetchingSheets ? (
+                <SelectContent className="z-[9999]">
+                  {showNewOptions && (
+                    <SelectItem value="new">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Plus className="h-3 w-3" />
+                        Create New Sheet
+                      </div>
+                    </SelectItem>
+                  )}
+                  {isLoadingSheets ? (
                     <SelectItem value="loading" disabled>
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -397,7 +431,7 @@ const SelectSheetAndTab = ({
                       </div>
                     </SelectItem>
                   ) : (
-                    sheets.map(sheet => (
+                    displaySheets.map(sheet => (
                       <SelectItem key={sheet.id} value={sheet.id}>
                         <div className="flex items-center gap-2">
                           {sheet.name}
@@ -420,15 +454,19 @@ const SelectSheetAndTab = ({
                 disabled={fetchingTabs || !selectedSheetId}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder={fetchingTabs ? 'Loading tabs...' : 'Choose a tab...'} />
+                  <SelectValue placeholder={fetchingTabs ? 'Loading tabs...' : 'Choose a tab...'}>
+                    {selectedTabId && tabs.find(tab => tab.id === selectedTabId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Plus className="h-3 w-3" />
-                      Create New Tab
-                    </div>
-                  </SelectItem>
+                <SelectContent className="z-[9999]">
+                  {showNewOptions && (
+                    <SelectItem value="new">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Plus className="h-3 w-3" />
+                        Create New Tab
+                      </div>
+                    </SelectItem>
+                  )}
                   {fetchingTabs ? (
                     <SelectItem value="loading" disabled>
                       <div className="flex items-center gap-2">

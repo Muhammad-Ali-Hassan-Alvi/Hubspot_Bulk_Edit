@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { auditLogger } from '@/lib/services/audit-logger'
 
@@ -25,8 +24,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = createClient()
 
     // Verify user authentication
     const user = await getAuthenticatedUser()

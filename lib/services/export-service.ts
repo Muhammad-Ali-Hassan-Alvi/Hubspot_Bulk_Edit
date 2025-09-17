@@ -62,10 +62,20 @@ export class ExportService {
   /**
    * Process data rows for export
    */
-  private processDataRows(data: PageData[], columns: ColumnDefinition[], timestamp: string): any[][] {
+  private processDataRows(
+    data: PageData[],
+    columns: ColumnDefinition[],
+    timestamp: string
+  ): any[][] {
     return data.map((row: PageData) => [
       timestamp,
       ...columns.map(({ label, key }) => {
+        // If the row already has the label as a key (pre-processed data), use it directly
+        if (row[label] !== undefined) {
+          const value = row[label]
+          return typeof value === 'object' && value !== null ? JSON.stringify(value) : (value ?? '')
+        }
+        // Otherwise, use the original getFieldValue logic
         const value = getFieldValue(row, label, key)
         return typeof value === 'object' && value !== null ? JSON.stringify(value) : (value ?? '')
       }),
@@ -90,8 +100,17 @@ export class ExportService {
     // Create CSV header row
     const headerRow = headers.map(escapeCSVValue).join(',')
 
-    // Create CSV data rows
-    const dataRows = data.map(row => headers.map(header => escapeCSVValue(row[header])).join(','))
+    // Check if data is array of arrays (from processDataRows) or array of objects
+    const isArrayOfArrays = Array.isArray(data[0])
+
+    let dataRows: string[]
+    if (isArrayOfArrays) {
+      // Data is array of arrays, join each row directly
+      dataRows = data.map(row => row.map(escapeCSVValue).join(','))
+    } else {
+      // Data is array of objects, map by header names
+      dataRows = data.map(row => headers.map(header => escapeCSVValue(row[header])).join(','))
+    }
 
     // Combine header and data rows
     return [headerRow, ...dataRows].join('\n')
@@ -109,7 +128,11 @@ export class ExportService {
   /**
    * Export to CSV
    */
-  async exportToCSV(data: PageData[], columns: string[], options: ExportOptions): Promise<ExportResult> {
+  async exportToCSV(
+    data: PageData[],
+    columns: string[],
+    options: ExportOptions
+  ): Promise<ExportResult> {
     try {
       if (!Array.isArray(data) || data.length === 0) {
         return {
@@ -126,11 +149,18 @@ export class ExportService {
 
       // Generate CSV content
       const csvContent = this.generateCSVContent(rows, headers)
-      const filename = options.filename || this.generateFilename(options.contentType, data.length, 'csv')
+      const filename =
+        options.filename || this.generateFilename(options.contentType, data.length, 'csv')
 
       // Save structured backup
       const backupId = `csv_${options.contentType.toLowerCase().replace(/\s+/g, '_')}_${timestamp}`
-      await saveStructuredBackup(data, this.user.id, backupId, `csv_${options.contentType}`, 'default')
+      await saveStructuredBackup(
+        data,
+        this.user.id,
+        backupId,
+        `csv_${options.contentType}`,
+        'default'
+      )
 
       return {
         success: true,
@@ -145,6 +175,7 @@ export class ExportService {
       return {
         success: false,
         error: 'Failed to export to CSV',
+        message: 'Failed to export to CSV',
         rowsAdded: 0,
       }
     }
@@ -154,8 +185,8 @@ export class ExportService {
    * Export to Google Sheets
    */
   async exportToGoogleSheets(
-    data: PageData[], 
-    columns: string[], 
+    data: PageData[],
+    columns: string[],
     options: ExportOptions
   ): Promise<ExportResult> {
     try {
@@ -163,6 +194,7 @@ export class ExportService {
         return {
           success: false,
           error: 'Sheet ID is required for Google Sheets export',
+          message: 'Sheet ID is required for Google Sheets export',
           rowsAdded: 0,
         }
       }
@@ -262,6 +294,7 @@ export class ExportService {
       return {
         success: false,
         error: 'Failed to export to Google Sheets',
+        message: 'Failed to export to Google Sheets',
         rowsAdded: 0,
       }
     }

@@ -10,6 +10,31 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config, { isServer }) => {
+    // Suppress Supabase realtime-js warnings
+    config.module.rules.push({
+      test: /node_modules\/@supabase\/realtime-js/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['next/babel'],
+        },
+      },
+    })
+
+    // Ignore specific warnings
+    config.ignoreWarnings = [/Critical dependency: the request of a dependency is an expression/]
+
+    // Suppress Node.js deprecation warnings
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        punycode: false,
+      }
+    }
+
+    return config
+  },
 }
 
 const isProdOrPreview = ['production', 'preview'].includes(process.env.VERCEL_ENV)

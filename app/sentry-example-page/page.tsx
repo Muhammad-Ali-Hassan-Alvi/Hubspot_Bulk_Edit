@@ -3,8 +3,6 @@
 import Head from 'next/head'
 import * as Sentry from '@sentry/nextjs'
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-const supabase = createClient()
 
 class SentryExampleFrontendError extends Error {
   constructor(message: string | undefined) {
@@ -17,20 +15,10 @@ export default function Page() {
   const [hasSentError, setHasSentError] = useState(false)
   const [isConnected, setIsConnected] = useState(true)
 
-  console.log('umar env is', process.env.NODE_ENV)
-  console.log('umar vercel env is', process.env.VERCEL_ENV)
   const test = async () => {
     try {
       // Simulate crash
       throw new Error('Crash! Sentry should log this automatically.')
-
-      // Optional: trigger supabase error too
-      const { error } = await supabase.from('fake_table').upsert({
-        user_id: 1,
-        platform_id: 1,
-        access_token: 'asd',
-      })
-      if (error) throw error
     } catch (err) {
       // Manually capture
       Sentry.captureException(err)
@@ -46,7 +34,6 @@ export default function Page() {
     async function checkConnectivity() {
       const result = await Sentry.diagnoseSdkConnectivity()
       Sentry.diagnoseSdkConnectivity().then(result => {
-        console.log('Umar sentry log:', result)
         setIsConnected(result !== 'sentry-unreachable')
       })
 

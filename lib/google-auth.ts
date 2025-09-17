@@ -12,7 +12,7 @@ export interface GoogleAuthResult {
  * Get authenticated Google OAuth2 client with automatic token refresh
  */
 export async function getAuthenticatedGoogleClient(
-  supabase: SupabaseClient, 
+  supabase: SupabaseClient,
   userId: string,
   redirectUri?: string
 ): Promise<GoogleAuthResult> {
@@ -41,11 +41,11 @@ export async function getAuthenticatedGoogleClient(
   // 4. Refresh token if expired
   if (expiresAt && now >= expiresAt && refreshToken) {
     oauth2Client.setCredentials({ refresh_token: refreshToken })
-    
+
     try {
       const { credentials } = await oauth2Client.refreshAccessToken()
       accessToken = credentials.access_token!
-      
+
       // Update new access token in database
       await supabase
         .from('user_settings')
@@ -78,7 +78,10 @@ export async function getAuthenticatedGoogleClient(
  * Legacy function for backward compatibility
  * @deprecated Use getAuthenticatedGoogleClient instead
  */
-export async function getAuthenticatedGoogleClientLegacy(_supabase: SupabaseClient, userId: string) {
+export async function getAuthenticatedGoogleClientLegacy(
+  _supabase: SupabaseClient,
+  userId: string
+) {
   const { oauth2Client } = await getAuthenticatedGoogleClient(_supabase, userId)
   return oauth2Client
 }

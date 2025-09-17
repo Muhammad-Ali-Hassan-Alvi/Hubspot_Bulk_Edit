@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (importType === 'sheets' && (!sheetId || !tabName)) {
+    if (importType === 'sheets' && !contentType) {
       return NextResponse.json(
-        { success: false, error: 'Missing required field: contentType for CSV import.' },
+        { success: false, error: 'Missing required field: contentType for sheets import.' },
         { status: 400 }
       )
     }
@@ -60,23 +60,73 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    let query = supabase
-      .from('page_snapshots')
-      .select('backup_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    let latestBackupRun: any = null
+    let backupIdError: any = null
 
     if (importType === 'csv') {
-      // --- FIX #3: Make the query specific to the content type ---
-      // OLD: query = query.like('backup_id', 'csv_%')
-      query = query.like('backup_id', `csv_${normalizedContentType}_%`)
-    } else {
-      // Assuming sheets logic is different and might not need this change yet
-      query = query.not('backup_id', 'like', 'csv_%')
-    }
+      // Make the query specific to the content type
+      // Try both underscore and hyphen versions to handle different content type formats
+      const normalizedContentTypeUnderscore =
+        contentType?.toLowerCase().replace(/\s+/g, '_') || 'landing_page'
+      const normalizedContentTypeHyphen =
+        contentType?.toLowerCase().replace(/\s+/g, '-') || 'landing-page'
 
-    const { data: latestBackupRun, error: backupIdError } = await query.single()
+      // First try underscore version (most common)
+      let query = supabase
+        .from('page_snapshots')
+        .select('backup_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .like('backup_id', `csv_${normalizedContentTypeUnderscore}_%`)
+
+      let result = await query.single()
+      latestBackupRun = result.data
+      backupIdError = result.error
+
+      // If not found, try hyphen version
+      if (backupIdError || !latestBackupRun) {
+        query = supabase
+          .from('page_snapshots')
+          .select('backup_id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .like('backup_id', `csv_${normalizedContentTypeHyphen}_%`)
+
+        result = await query.single()
+        latestBackupRun = result.data
+        backupIdError = result.error
+      }
+
+      // If still not found, try any CSV backup for this user
+      if (backupIdError || !latestBackupRun) {
+        query = supabase
+          .from('page_snapshots')
+          .select('backup_id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .like('backup_id', 'csv_%')
+
+        result = await query.single()
+        latestBackupRun = result.data
+        backupIdError = result.error
+      }
+    } else {
+      // For sheets, look for non-CSV backups
+      const query = supabase
+        .from('page_snapshots')
+        .select('backup_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .not('backup_id', 'like', 'csv_%')
+
+      const result = await query.single()
+      latestBackupRun = result.data
+      backupIdError = result.error
+    }
 
     if (backupIdError || !latestBackupRun) {
       return NextResponse.json(
@@ -116,11 +166,13 @@ export async function POST(request: NextRequest) {
       const dbField = header.replace(/\s+/g, '_').toLowerCase()
       fieldsToCompare[header] = dbField
     }
-    console.log(`Processing ${importData.length} import records against ${dbBackupData.length} snapshot records (${importType})`)
+    console.log('Field mapping:', fieldsToCompare)
+    console.log('Available headers:', headers)
+    console.log(
+      `Processing ${importData.length} import records against ${dbBackupData.length} snapshot records (${importType})`
+    )
 
-    const importPageIds = importData.map(row => row['Id']).filter(id => id)
-    const dbPageIds = dbBackupData.map(row => row.hubspot_page_id)
-    const matchingIds = importPageIds.filter(id => dbPageIds.includes(String(id)))
+    // Note: importPageIds and dbPageIds calculations removed as they were unused
 
     const changes = []
 
@@ -168,9 +220,33 @@ export async function POST(request: NextRequest) {
         const dbField = fieldsToCompare[header]
         const importValue = importRow[header]
 
-        const dbValue = dbPage.page_content?.[dbField] || (dbPage as any)[dbField]
+        const dbValue = (dbPage as any)[dbField]
 
+        // Debug domain, campaign, and slug fields specifically
+        if (
+          header.toLowerCase().includes('domain') ||
+          header.toLowerCase().includes('campaign') ||
+          header.toLowerCase().includes('slug')
+        ) {
+          console.log(`Comparing ${header}:`, {
+            importValue,
+            dbValue,
+            dbField,
+            pageId,
+            allDbFields: Object.keys(dbPage || {}),
+          })
+        }
+
+        // Handle missing fields - treat as new field if import has value
         if (dbValue === undefined || dbValue === null) {
+          if (!isEmptyOrNA(importValue)) {
+            console.log(`New field detected: ${header} with value: ${importValue}`)
+            modifiedFields[dbField] = {
+              oldValue: null,
+              newValue: importValue,
+            }
+            isModified = true
+          }
           continue
         }
 
@@ -236,7 +312,7 @@ export async function POST(request: NextRequest) {
       if (isModified) {
         changes.push({
           pageId: pageId,
-          name: importRow['Name'] || dbPage.name,
+          name: importRow['Name'] || (dbPage as any).name || `Page ${pageId}`,
           type: 'modified',
           fields: modifiedFields,
         })
@@ -244,7 +320,9 @@ export async function POST(request: NextRequest) {
     }
 
     const totalChanges = changes.reduce((acc, item) => acc + Object.keys(item.fields).length, 0)
-    console.log(`Change detection complete: ${changes.length}/${importData.length} items have changes (${totalChanges} total field changes)`)
+    console.log(
+      `Change detection complete: ${changes.length}/${importData.length} items have changes (${totalChanges} total field changes)`
+    )
 
     return NextResponse.json({
       success: true,

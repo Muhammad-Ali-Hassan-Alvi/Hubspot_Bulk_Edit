@@ -18,7 +18,7 @@ async function fetchContentTypes(): Promise<any[]> {
 
     // Fetch from our content types API
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/content-types`)
+    const response = await fetch(`${baseUrl}/api/hubspot/content-types`)
 
     if (response.ok) {
       const data = await response.json()

@@ -68,13 +68,13 @@ export default function ImportManager({
   // Ensure selected content type is valid when options load
   useEffect(() => {
     if (contentTypesOptions.length > 0 && !contentTypesLoading) {
-      const isValidOption = contentTypesOptions.some(option => option.value === selectedContentType)
+      const isValidOption = contentTypesOptions.some(option => option.slug === selectedContentType)
       if (!isValidOption) {
         // If current selection is not valid, set to first available option (should be landing-pages)
         const defaultOption =
-          contentTypesOptions.find(option => option.value === 'landing-pages') ||
+          contentTypesOptions.find(option => option.slug === 'landing-pages') ||
           contentTypesOptions[0]
-        setSelectedContentType(defaultOption.value)
+        setSelectedContentType(defaultOption.slug)
       }
     }
   }, [contentTypesOptions, contentTypesLoading, selectedContentType])
@@ -147,8 +147,10 @@ export default function ImportManager({
 
       const files = Array.from(e.dataTransfer.files)
       const file = files[0]
+      console.log('File dropped:', file)
 
       if (file && file.name.endsWith('.csv')) {
+        console.log('Processing CSV file:', file.name)
         // Create a fake event object to reuse the existing handler
         const fakeEvent = {
           target: { files: [file] },
@@ -158,6 +160,12 @@ export default function ImportManager({
         toast({
           title: 'Excel Files Not Supported',
           description: 'Please convert your Excel file to CSV format first',
+          variant: 'destructive',
+        })
+      } else if (file) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Please select a CSV file',
           variant: 'destructive',
         })
       }
@@ -184,7 +192,7 @@ export default function ImportManager({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5" /> Import{' '}
-                {contentTypesOptions.find(opt => opt.value === selectedContentType)?.label ||
+                {contentTypesOptions.find(opt => opt.slug === selectedContentType)?.name ||
                   (contentTypesLoading ? 'Landing Pages' : selectedContentType)}
               </CardTitle>
               <CardDescription>
@@ -201,10 +209,10 @@ export default function ImportManager({
                   <SelectItem value="landing-pages">Landing Pages</SelectItem>
                   {/* Show other options when loaded */}
                   {contentTypesOptions
-                    .filter(option => option.value !== 'landing-pages')
+                    .filter(option => option.slug !== 'landing-pages')
                     .map(contentTypeOption => (
-                      <SelectItem key={contentTypeOption.value} value={contentTypeOption.value}>
-                        {contentTypeOption.label}
+                      <SelectItem key={contentTypeOption.slug} value={contentTypeOption.slug}>
+                        {contentTypeOption.name}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -245,7 +253,7 @@ export default function ImportManager({
               {/* Show upload area only if no data is loaded */}
               {!hasData && (
                 <div className="space-y-4">
-                  {/* <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <span className="text-sm text-yellow-800">
                       <strong>Note:</strong> Only CSV files exported from this system are supported.
@@ -253,13 +261,13 @@ export default function ImportManager({
                       hubspot_{selectedContentType.toLowerCase().replace(/\s+/g, '_')}
                       _X_items_YYYY-MM-DD.csv
                     </span>
-                  </div> */}
+                  </div>
 
                   <div
                     className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                       isDragOver
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
+                        ? 'border-primary bg-accent'
+                        : 'border-border hover:border-primary/50'
                     }`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -267,14 +275,14 @@ export default function ImportManager({
                   >
                     <Upload
                       className={`h-12 w-12 mx-auto mb-4 ${
-                        isDragOver ? 'text-blue-500' : 'text-gray-400'
+                        isDragOver ? 'text-primary' : 'text-muted-foreground'
                       }`}
                     />
                     <div className="space-y-2">
-                      <p className="text-lg font-medium">
+                      <p className="text-lg font-medium text-foreground">
                         {isDragOver ? 'Drop your file here' : 'Upload CSV File'}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {isDragOver
                           ? 'Release to upload the file'
                           : 'Drag and drop a file here or click to select'}
@@ -298,7 +306,10 @@ export default function ImportManager({
                         ref={fileInputRef}
                         type="file"
                         accept=".csv"
-                        onChange={handleCsvUpload}
+                        onChange={e => {
+                          console.log('File input changed:', e.target.files)
+                          handleCsvUpload(e)
+                        }}
                         className="hidden"
                       />
                     </div>
@@ -440,6 +451,9 @@ export default function ImportManager({
                   onTabNameChange={handleTabChange}
                   onTabSelectionChange={tab => handleTabChange(tab.name)}
                   setExportingToSheets={() => {}} // Not needed for import
+                  showNewOptions={false} // Hide create new options for import
+                  sheets={sheets} // Pass sheets data from hook
+                  isLoadingSheets={isLoading} // Pass loading state
                 />
               )}
 
@@ -549,6 +563,18 @@ export default function ImportManager({
                             editableTextFields={new Set()}
                             currentContentTypeLabel="Detected Changes"
                           />
+                        </div>
+                      )}
+                      {hasData && !hasChanges && !isLoading && (
+                        <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-muted-foreground/20 rounded-lg">
+                          <div className="rounded-full bg-muted p-3 mb-4">
+                            <CheckCircle className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2">No Changes Found</h3>
+                          <p className="text-muted-foreground max-w-md">
+                            All data in your import file matches the current HubSpot data. No
+                            changes need to be synced.
+                          </p>
                         </div>
                       )}
                     </div>

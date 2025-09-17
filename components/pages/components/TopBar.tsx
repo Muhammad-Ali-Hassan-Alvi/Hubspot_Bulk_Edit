@@ -1,5 +1,6 @@
 // components/TopBar.tsx
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
@@ -10,13 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
 import { Card } from '@/components/ui/card'
 import { ChevronFirst, ChevronLast, Download } from 'lucide-react'
 
@@ -44,13 +39,52 @@ const TopBar: React.FC<TopBarProps> = ({
   loading,
   selectedRows,
   onPagination,
-  setItemsPerPage,
+  // setItemsPerPage,
   isExportModalOpen,
   onExportModalOpenChange,
   exportModalContent,
   onSelectAll,
   currentContentTypeLabel,
 }) => {
+  const { toast } = useToast()
+
+  // Track previous selection length to detect select all/deselect all actions
+  const [prevSelectedCount, setPrevSelectedCount] = useState(selectedRows.length)
+
+  useEffect(() => {
+    const currentCount = selectedRows.length
+
+    // Only show toast for select all or deselect all actions
+    if (prevSelectedCount !== currentCount) {
+      if (currentCount === totalItems && prevSelectedCount < totalItems) {
+        // Select all action
+        toast({
+          title: `All ${totalItems} records selected`,
+          description: `You have selected all ${totalItems} ${currentContentTypeLabel?.toLowerCase() || 'records'}.`,
+          variant: 'default',
+        })
+      } else if (currentCount === 0 && prevSelectedCount > 0) {
+        // Deselect all action
+        toast({
+          title: 'All records deselected',
+          description: `You have deselected all ${currentContentTypeLabel?.toLowerCase() || 'records'}.`,
+          variant: 'default',
+        })
+      }
+      setPrevSelectedCount(currentCount)
+    }
+  }, [selectedRows.length, totalItems, currentContentTypeLabel, toast, prevSelectedCount])
+
+  // Check if all records are selected
+  const allRecordsSelected = selectedRows.length === totalItems
+
+  const handleSelectToggle = () => {
+    if (allRecordsSelected) {
+      onSelectAll(false) // Unselect all
+    } else {
+      onSelectAll(true) // Select all
+    }
+  }
   return (
     <div className="space-y-2">
       <Card className="flex p-2 justify-between items-center gap-2 border-0 shadow-none bg-transparent">
@@ -78,16 +112,14 @@ const TopBar: React.FC<TopBarProps> = ({
               <ChevronLast className="h-4 w-4" />
             </Button>
           </div>
-          <Select value={String(itemsPerPage)} onValueChange={v => setItemsPerPage(Number(v))}>
+          {/* <Select value={String(itemsPerPage)} onValueChange={v => setItemsPerPage(Number(v))}>
             <SelectTrigger className="w-auto">
               <SelectValue placeholder="500 / page" />
             </SelectTrigger>
             <SelectContent>
-              {/* <SelectItem value="100">100 / page</SelectItem> */}
-              {/* <SelectItem value="250">250 / page</SelectItem> */}
               <SelectItem value="500">500 / page</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
         </div>
         <div className="flex items-center gap-2">
           {/* Export Button */}
@@ -137,10 +169,12 @@ const TopBar: React.FC<TopBarProps> = ({
           <span className="text-sm text-muted-foreground">
             {selectedRows.length} records selected.{' '}
             <button
-              onClick={() => onSelectAll(true)}
+              onClick={handleSelectToggle}
               className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
             >
-              Select all {totalItems} {currentContentTypeLabel || 'records'}
+              {allRecordsSelected
+                ? `Deselect all ${totalItems} ${currentContentTypeLabel || 'records'}`
+                : `Select all ${totalItems} ${currentContentTypeLabel || 'records'}`}
             </button>
           </span>
         </div>

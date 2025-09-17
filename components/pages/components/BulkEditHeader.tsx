@@ -21,16 +21,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import { X, PenSquare, RefreshCw, CalendarIcon, Loader2 } from 'lucide-react'
 import { useUserSettings } from '@/hooks/useUserSettings'
-import { X, PenSquare, RefreshCw, CalendarIcon } from 'lucide-react'
-import { EDITABLE_FIELDS } from '@/lib/constants'
-import { getHubSpotInAppEditFieldsAsObjects } from '@/lib/utils'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
 import UploadingModal from '@/components/modals/UploadingModal'
 import UploadResultsModal from '@/components/modals/UploadResultsModal'
 import { useUploadFlow } from '@/hooks/useUploadFlow'
+import { ContentTypeT } from '@/lib/content-types'
+import { EDITABLE_FIELDS } from '@/lib/constants'
 
 const DatePickerCustomInput = forwardRef(({ value, onClick }: any, ref: any) => (
   <Button variant="outline" onClick={onClick} ref={ref} className="w-full justify-start">
@@ -45,11 +45,16 @@ interface EditableField {
   label: string
   type: string
   options?: readonly string[]
+  category?: string
+  contentType?: string
+  readOnly?: boolean
+  inAppEdit?: boolean
+  filters?: boolean
 }
 
 interface BulkEditHeaderProps {
   selectedRowCount: number
-  contentType?: string
+  contentType?: ContentTypeT
   onConfirm: (updates: { [key: string]: any }) => void
   onClearSelection: () => void
   isPublishing?: boolean
@@ -67,13 +72,62 @@ export default function BulkEditHeader({
   allContent,
 }: BulkEditHeaderProps) {
   const [updates, setUpdates] = useState<{ [key: string]: any }>({})
+  const [dynamicFields, setDynamicFields] = useState<EditableField[]>([])
+  const [loadingFields, setLoadingFields] = useState(false)
   const { toast } = useToast()
   const { userSettings } = useUserSettings()
   const uploadFlow = useUploadFlow()
 
-  const fieldsToUse = useMemo(() => {
-    return _contentType ? getHubSpotInAppEditFieldsAsObjects(_contentType) : EDITABLE_FIELDS
+  // Fetch headers dynamically from database
+  const fetchHeaders = async (contentType: string) => {
+    setLoadingFields(true)
+    try {
+      const params = new URLSearchParams({
+        contentType: contentType,
+        inAppEdit: 'true', // Only fetch headers that are enabled for in-app editing
+      })
+
+      const response = await fetch(`/api/hubspot/headers?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setDynamicFields(data.headers)
+        console.log('Fetched dynamic headers:', data.headers)
+      } else {
+        console.error('Failed to fetch headers:', data.error)
+        toast({
+          title: 'Error Loading Fields',
+          description: 'Failed to load editable fields. Using fallback fields.',
+          variant: 'destructive',
+        })
+        // Fallback to constants if API fails
+        setDynamicFields([...EDITABLE_FIELDS])
+      }
+    } catch (error) {
+      console.error('Error fetching headers:', error)
+      toast({
+        title: 'Error Loading Fields',
+        description: 'Failed to load editable fields. Using fallback fields.',
+        variant: 'destructive',
+      })
+      // Fallback to constants if API fails
+      setDynamicFields([...EDITABLE_FIELDS])
+    } finally {
+      setLoadingFields(false)
+    }
+  }
+
+  // Fetch headers when content type changes
+  useEffect(() => {
+    if (_contentType) {
+      fetchHeaders(_contentType.name)
+    }
   }, [_contentType])
+
+  // Use dynamic fields from database or fallback to constants
+  const fieldsToUse = useMemo(() => {
+    return dynamicFields.length > 0 ? dynamicFields : EDITABLE_FIELDS
+  }, [dynamicFields])
   // Lazy loading dropdown options - only fetch when needed
   const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>(
     {}
@@ -97,8 +151,7 @@ export default function BulkEditHeader({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             hubspotToken: userSettings.hubspot_token_encrypted,
-            contentType: _contentType || 'all-pages',
-            specificField: fieldKey, // Request only specific field
+            contentType: _contentType?.name || '',
           }),
         })
 
@@ -369,7 +422,7 @@ export default function BulkEditHeader({
         )
       case 'datetime':
         return (
-          <div className="relative z-[30]">
+          <div className="relative z-[60]">
             <DatePicker
               selected={updates[field.key] ? new Date(updates[field.key]) : null}
               onChange={(date: Date | null) => {
@@ -388,6 +441,8 @@ export default function BulkEditHeader({
               customInput={<DatePickerCustomInput />}
               className="w-full"
               wrapperClassName="w-full"
+              popperClassName="z-[60]"
+              popperPlacement="bottom-start"
             />
           </div>
         )
@@ -518,14 +573,27 @@ export default function BulkEditHeader({
           )}
            */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
-            {fieldsToUse.map(field => (
-              <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={field.key} className="text-sm font-medium">
-                  {field.label}
-                </Label>
-                {renderField(field)}
+            {loadingFields ? (
+              <div className="col-span-full flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span className="text-sm text-muted-foreground">Loading editable fields...</span>
               </div>
-            ))}
+            ) : fieldsToUse.length === 0 ? (
+              <div className="col-span-full flex items-center justify-center py-8">
+                <span className="text-sm text-muted-foreground text-center">
+                  No In App Bulk Edit Headers for the selected content type
+                </span>
+              </div>
+            ) : (
+              fieldsToUse.map(field => (
+                <div key={field.key} className="space-y-1.5">
+                  <Label htmlFor={field.key} className="text-sm font-medium">
+                    {field.label}
+                  </Label>
+                  {renderField(field)}
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -568,7 +636,7 @@ export default function BulkEditHeader({
                   {Object.entries(updates).map(([key, value]) => {
                     if (value === '' || value === null || value === undefined) return null
 
-                    const field = fieldsToUse.find(f => f.key === key)
+                    const field = fieldsToUse.find((f: EditableField) => f.key === key)
                     const fieldLabel = field?.label || key
 
                     return (

@@ -7,10 +7,18 @@ import * as Sentry from '@sentry/nextjs'
 Sentry.init({
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  // enabled: process.env.NODE_ENV !== 'development',
-  // environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
+  enabled: process.env.NODE_ENV !== 'development',
+  environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
+  // Add transport options to handle network errors gracefully
+  beforeSend(event) {
+    // Filter out network errors in development
+    if (process.env.NODE_ENV === 'development') {
+      return null
+    }
+    return event
+  },
 })

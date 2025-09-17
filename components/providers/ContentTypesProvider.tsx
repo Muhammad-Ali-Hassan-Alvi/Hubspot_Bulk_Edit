@@ -1,10 +1,10 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { fetchContentTypes, clearContentTypesCache, type ContentType } from '@/lib/content-types'
+import { fetchContentTypes, clearContentTypesCache, type ContentTypeT } from '@/lib/content-types'
 
 interface ContentTypesContextType {
-  contentTypes: ContentType[]
+  contentTypes: ContentTypeT[]
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
@@ -19,48 +19,8 @@ interface ContentTypesProviderProps {
 
 export function ContentTypesProvider({ children }: ContentTypesProviderProps) {
   // Start with fallback content types immediately - no loading state
-  const fallbackTypes = [
-    {
-      value: 'landing-pages',
-      label: 'Landing Pages',
-      description: 'Marketing landing pages',
-      category: 'pages',
-    },
-    {
-      value: 'site-pages',
-      label: 'Website Pages',
-      description: 'General website pages',
-      category: 'pages',
-    },
-    {
-      value: 'blog-posts',
-      label: 'Blog Posts',
-      description: 'Blog articles and posts',
-      category: 'content',
-    },
-    { value: 'blogs', label: 'Blogs', description: 'Blog collections', category: 'content' },
-    { value: 'tags', label: 'Tags', description: 'Content tags', category: 'organization' },
-    {
-      value: 'authors',
-      label: 'Authors',
-      description: 'Content authors',
-      category: 'organization',
-    },
-    {
-      value: 'url-redirects',
-      label: 'URL Redirects',
-      description: 'URL redirect rules',
-      category: 'technical',
-    },
-    {
-      value: 'hubdb-tables',
-      label: 'HubDB Tables',
-      description: 'Database tables',
-      category: 'technical',
-    },
-  ]
 
-  const [contentTypes, setContentTypes] = useState<ContentType[]>(fallbackTypes)
+  const [contentTypes, setContentTypes] = useState<ContentTypeT[]>([])
   const [loading, setLoading] = useState(false) // Start with false - no blocking
   const [error, setError] = useState<string | null>(null)
 

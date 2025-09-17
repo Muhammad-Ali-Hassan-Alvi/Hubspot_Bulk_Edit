@@ -62,9 +62,15 @@ export const useImportManager = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const { user } = useUser()
-  const { userSettings } = useUserSettings()
+  const { userSettings, loadUserSettings, loading: userSettingsLoading } = useUserSettings()
   const uploadFlow = useUploadFlow()
 
+  // Load user settings when user is available
+  useEffect(() => {
+    if (user?.id && !userSettings) {
+      loadUserSettings(user.id)
+    }
+  }, [user?.id, userSettings, loadUserSettings])
 
   const fetchUserSheets = useCallback(async () => {
     if (!user?.id) return
@@ -491,19 +497,44 @@ export const useImportManager = ({
 
     await uploadFlow.confirmChanges(async () => {
       try {
-        const response = await fetch('/api/import/sync-to-hubspot', {
+        // Debug: Log what we're sending
+        console.log('Sync request data:', {
+          userId: user?.id,
+          hubspotToken: userSettings?.hubspot_token_encrypted,
+          changesCount: allChanges.length,
+          userSettings: userSettings,
+        })
+
+        if (userSettingsLoading) {
+          toast({
+            title: 'Loading...',
+            description: 'Please wait while we load your settings.',
+            variant: 'default',
+          })
+          return
+        }
+
+        if (!userSettings?.hubspot_token_encrypted) {
+          toast({
+            title: 'HubSpot Not Connected',
+            description: 'Please connect your HubSpot account first.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        const response = await fetch('/api/sync/to-hubspot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: user?.id,
-            contentType,
-            importData: currentData, // Keep for fallback
-            changes: allChanges, // Send the specific changes to sync
+            hubspotToken: userSettings.hubspot_token_encrypted,
+            changes: allChanges,
           }),
         })
         if (response.ok) {
           const data = await response.json()
-          uploadFlow.completeUpload(data.synced || 0, data.failed || 0)
+          uploadFlow.completeUpload(data.succeeded?.length || 0, data.failed?.length || 0)
           setChanges([])
           setSelectedChangedRows([])
           onImportComplete?.(currentData)
@@ -541,7 +572,11 @@ export const useImportManager = ({
     allChanges.reduce((acc, change) => {
       const pageId = change.pageId
       if (!acc[pageId])
-        acc[pageId] = { pageId, pageName: change.name || change.pageName || pageId, changes: [] }
+        acc[pageId] = {
+          pageId: pageId,
+          pageName: change.name || change.pageName || pageId,
+          changes: [],
+        }
       if (change.fields) {
         Object.entries(change.fields).forEach(([fieldName, fieldData]: [string, any]) => {
           acc[pageId].changes.push({

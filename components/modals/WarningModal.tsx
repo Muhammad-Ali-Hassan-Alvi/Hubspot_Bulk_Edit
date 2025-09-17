@@ -20,6 +20,7 @@ interface WarningModalProps {
   confirmText?: string
   cancelText?: string
   variant?: 'default' | 'destructive'
+  isConfirmDisabled?: boolean
 }
 
 export default function WarningModal({
@@ -31,6 +32,7 @@ export default function WarningModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'default',
+  isConfirmDisabled = false,
 }: WarningModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -46,9 +48,10 @@ export default function WarningModal({
           <Button variant="outline" onClick={onClose}>
             {cancelText}
           </Button>
-          <Button 
-            variant={variant === 'destructive' ? 'destructive' : 'default'} 
+          <Button
+            variant={variant === 'destructive' ? 'destructive' : 'default'}
             onClick={onConfirm}
+            disabled={isConfirmDisabled}
           >
             {confirmText}
           </Button>

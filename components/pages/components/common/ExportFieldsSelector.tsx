@@ -8,6 +8,7 @@ import {
   getRecommendedHeaders,
   isHeaderReadOnly,
 } from '@/lib/utils'
+import { ContentTypeT } from '@/lib/content-types'
 
 interface ExportFieldsSelectorProps {
   availableColumns: { key: string; label: string }[]
@@ -15,7 +16,7 @@ interface ExportFieldsSelectorProps {
   setSelectedColumns: React.Dispatch<React.SetStateAction<string[]>>
   idPrefix: string
   requiredFields?: string[]
-  contentType?: string
+  contentType?: ContentTypeT
 }
 
 export default function ExportFieldsSelector({
@@ -23,11 +24,11 @@ export default function ExportFieldsSelector({
   selectedColumns,
   setSelectedColumns,
   idPrefix,
-  contentType = 'Landing Page',
+  contentType,
 }: ExportFieldsSelectorProps) {
   // Get headers from the new HubSpot system
-  const recommendedHeaders = getRecommendedHeaders(contentType)
-  const additionalHeaders = getAdditionalHeadersWithoutInAppEdits(contentType)
+  const recommendedHeaders = getRecommendedHeaders(contentType?.name ?? '')
+  const additionalHeaders = getAdditionalHeadersWithoutInAppEdits(contentType?.name ?? '')
 
   // Categorize columns into three groups
   const requiredColumns = availableColumns
@@ -140,7 +141,7 @@ export default function ExportFieldsSelector({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <TooltipProvider>
               {recommendedColumns.map(col => {
-                const isReadOnly = isHeaderReadOnly(col.key, contentType)
+                const isReadOnly = isHeaderReadOnly(col.key, contentType?.name ?? '')
                 return (
                   <div key={`${idPrefix}-${col.key}`} className="flex items-center space-x-2">
                     <Checkbox
@@ -200,7 +201,7 @@ export default function ExportFieldsSelector({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-2 custom-scrollbar-thin">
             {additionalColumns.map(col => {
-              const isReadOnly = isHeaderReadOnly(col.key, contentType)
+              const isReadOnly = isHeaderReadOnly(col.key, contentType?.name ?? '')
               return (
                 <div key={`${idPrefix}-${col.key}`} className="flex items-center space-x-2">
                   <Checkbox

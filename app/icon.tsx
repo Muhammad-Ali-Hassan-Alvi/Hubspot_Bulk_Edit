@@ -11,31 +11,37 @@ export const size = {
 export const contentType = 'image/png'
 
 // Image generation
-export default function Icon() {
-  return new ImageResponse(
-    (
-      // ImageResponse JSX element
-      <div
-        style={{
-          fontSize: 24,
-          background: 'linear-gradient(to right, #66A9EA, #76E8A2)',
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontWeight: 'bold',
-        }}
-      >
-        S
-      </div>
-    ),
-    // ImageResponse options
-    {
-      // For convenience, we can re-use the exported icons size metadata
-      // config to also set the ImageResponse's width and height.
-      ...size,
-    }
-  )
+export default async function Icon() {
+  try {
+    return new ImageResponse(
+      (
+        // ImageResponse JSX element
+        <div
+          style={{
+            fontSize: 24,
+            background: 'linear-gradient(to right, #66A9EA, #76E8A2)',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontWeight: 'bold',
+          }}
+        >
+          S
+        </div>
+      ),
+      // ImageResponse options
+      {
+        // For convenience, we can re-use the exported icons size metadata
+        // config to also set the ImageResponse's width and height.
+        ...size,
+      }
+    )
+  } catch (error) {
+    console.error('Error generating icon:', error)
+    // Return a simple response or redirect to static icon
+    return new Response('Error generating icon', { status: 500 })
+  }
 }

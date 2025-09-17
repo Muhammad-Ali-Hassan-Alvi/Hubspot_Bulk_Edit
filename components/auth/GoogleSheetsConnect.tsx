@@ -71,6 +71,7 @@ export default function GoogleSheetsConnect({
   }
 
   const disconnect = async () => {
+    setLoading(true)
     try {
       const response = await fetch('/api/user/settings', {
         method: 'POST',
@@ -103,6 +104,7 @@ export default function GoogleSheetsConnect({
         variant: 'destructive',
       })
     }
+    setLoading(false)
   }
 
   if (!isConnected) {

@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { HUBSPOT_LANGUAGES, HUBSPOT_STATES, HUBSPOT_BOOLEAN_OPTIONS } from '@/lib/constants/hubspot-languages'
+import {
+  HUBSPOT_LANGUAGES,
+  HUBSPOT_STATES,
+  HUBSPOT_BOOLEAN_OPTIONS,
+} from '@/lib/constants/hubspot-languages'
 
 const dropdownCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
 
 async function fetchAllFromEndpoint(url: string, headers: HeadersInit): Promise<any[]> {
   const allResults: any[] = []
@@ -151,15 +154,15 @@ export async function POST(request: NextRequest) {
     dropdownOptions.topicIds = topics.map(topic => topic.id).filter(Boolean)
 
     // 7. Languages - Use comprehensive HubSpot language list
-    dropdownOptions.language = HUBSPOT_LANGUAGES
+    dropdownOptions.language = [...HUBSPOT_LANGUAGES]
 
     // 8. States - Official HubSpot states from documentation
-    dropdownOptions.state = HUBSPOT_STATES
+    dropdownOptions.state = [...HUBSPOT_STATES]
 
     // 9. Boolean options
-    dropdownOptions.useFeaturedImage = HUBSPOT_BOOLEAN_OPTIONS
-    dropdownOptions.pageExpiryEnabled = HUBSPOT_BOOLEAN_OPTIONS
-    dropdownOptions.archivedInDashboard = HUBSPOT_BOOLEAN_OPTIONS
+    dropdownOptions.useFeaturedImage = [...HUBSPOT_BOOLEAN_OPTIONS]
+    dropdownOptions.pageExpiryEnabled = [...HUBSPOT_BOOLEAN_OPTIONS]
+    dropdownOptions.archivedInDashboard = [...HUBSPOT_BOOLEAN_OPTIONS]
 
     // 10. Extract unique values from content
     const uniqueValues: { [key: string]: Set<string> } = {

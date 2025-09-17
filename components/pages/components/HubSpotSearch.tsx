@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/use-debounce'
+import { ContentTypeT } from '@/lib/content-types'
 
 interface HubSpotContent {
   id: string
@@ -16,7 +17,7 @@ interface HubSpotContent {
 
 interface HubSpotSearchProps {
   hubspotToken: string
-  contentType?: string
+  contentType?: ContentTypeT
   onSearchResults: (results: HubSpotContent[], total: number, searchTerm: string) => void
   onClearSearch: () => void
   isSearching: boolean
@@ -25,7 +26,7 @@ interface HubSpotSearchProps {
 
 export default function HubSpotSearch({
   hubspotToken,
-  contentType = 'all',
+  contentType,
   onSearchResults,
   onClearSearch,
   isSearching,
@@ -151,7 +152,8 @@ export default function HubSpotSearch({
             <span>Searching for "{searchTerm}"...</span>
           ) : (
             <span>
-              Searching across all {contentType === 'all' ? 'content types' : contentType}...
+              Searching across all{' '}
+              {!contentType === undefined ? 'content types' : contentType?.name}...
             </span>
           )}
         </div>

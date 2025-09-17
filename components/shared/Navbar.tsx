@@ -17,7 +17,6 @@ import {
   Laptop,
   PanelRightClose,
   Bell,
-  HelpCircle,
   Plug,
 } from 'lucide-react'
 import { useLayout } from '@/app/(protected)/layout-context'
@@ -71,7 +70,7 @@ export default function Navbar() {
   )
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-[60] flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:px-8">
       <Button
         variant="ghost"
         size="icon"
@@ -132,13 +131,6 @@ export default function Navbar() {
             </Link>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Link href="/help" title="Help" onClick={handleNavigation}>
-          <Button variant="ghost" size="icon">
-            <HelpCircle className="h-5 w-5" />
-            <span className="sr-only">Help</span>
-          </Button>
-        </Link>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

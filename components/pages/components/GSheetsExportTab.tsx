@@ -6,11 +6,13 @@ import { TabsContent } from '@/components/ui/tabs'
 import { DialogFooter } from '@/components/ui/dialog'
 import { FileSpreadsheet, ExternalLink, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import ExportFieldsSelector from './common/ExportFieldsSelector'
+import DynamicExportFieldsSelector from './common/DynamicExportFieldsSelector'
 import WarningModal from '@/components/modals/WarningModal'
 import type { User } from '@supabase/supabase-js'
 import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
 import { logExportActivityAction } from '@/app/actions/exportActions'
+import { ContentTypeT } from '@/lib/content-types'
+import { saveUserExport } from '@/lib/export-logger'
 
 interface GSheetsExportTabProps {
   availableColumns: { key: string; label: string }[]
@@ -20,7 +22,7 @@ interface GSheetsExportTabProps {
   content: any[]
   user: User
   userSettings: any
-  contentType?: string
+  contentType?: ContentTypeT
 }
 
 interface TabT {
@@ -36,8 +38,9 @@ export default function GSheetsExportTab({
   content,
   user,
   userSettings,
-  contentType = 'Landing Page',
+  contentType,
 }: GSheetsExportTabProps) {
+  // Debug: Check userSettings in export - REMOVED TO PREVENT CONSOLE SPAM
   const [loading, setLoading] = useState(false)
   const [selectedSheetId, setSelectedSheetId] = useState<string>('')
   const [_selectedTabId, setSelectedTabId] = useState<string>('')
@@ -86,8 +89,19 @@ export default function GSheetsExportTab({
         })
         setExportSuccessUrl(result.url)
 
+        // Save to user_exports table for import validation
+        await saveUserExport({
+          contentType: contentType?.id || 0,
+          exportType: 'google-sheets',
+          itemsCount: dataToExport.length,
+          sheetId: selectedSheetId,
+          tabId: _selectedTabId,
+          tabName: tabName?.trim() || 'Default',
+        })
+
+        // Also log to audit system for general activity tracking
         const logResult = await logExportActivityAction('sheets', {
-          content_type: contentType,
+          content_type: contentType?.name || 'Unknown',
           items_count: dataToExport.length,
           columns_exported: [],
           tab_name: tabName?.trim() || 'Default',
@@ -181,8 +195,7 @@ export default function GSheetsExportTab({
 
   return (
     <TabsContent value="sheets" className="space-y-4 pt-4">
-      <ExportFieldsSelector
-        availableColumns={availableColumns}
+      <DynamicExportFieldsSelector
         selectedColumns={selectedColumns}
         setSelectedColumns={setSelectedColumns}
         idPrefix="sheets"
@@ -197,6 +210,7 @@ export default function GSheetsExportTab({
           onTabNameChange={handleTabNameChange}
           onTabSelectionChange={handleTabSelectionChange}
           setExportingToSheets={setExportingToSheets}
+          showNewOptions={true}
         />
 
         {/* Show sheet link when a sheet is selected */}

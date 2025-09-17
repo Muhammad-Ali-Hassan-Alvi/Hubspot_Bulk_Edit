@@ -253,3 +253,12 @@
   max-width: -webkit-fill-available;
   max-width: -moz-available;
 }
+
+/* React DatePicker z-index fix */
+.react-datepicker-popper {
+  z-index: 60 !important;
+}
+
+.react-datepicker {
+  z-index: 60 !important;
+}

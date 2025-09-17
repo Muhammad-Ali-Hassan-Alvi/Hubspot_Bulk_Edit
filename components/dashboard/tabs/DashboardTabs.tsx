@@ -9,7 +9,6 @@ import HubSpot from './components/HubSpot'
 import ConnectCardSkeleton from '@/components/ui/skeleton/ConnectCardSkeleton'
 import GoogleSheet from './components/GoogleSheets'
 import AccountPlan from './components/AccountPlan'
-import SuccessAlert from '@/components/alerts/SuccessAlert'
 import { ContentCountsCard } from '../reports/ContentCountsCard'
 
 export default function DashboardOverviewPage() {
@@ -20,7 +19,6 @@ export default function DashboardOverviewPage() {
   const { user } = useUser()
   const [userSettings, setUserSettings] = useState<any>(null)
   const [isDisconnecting, setIsDisconnecting] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [hubspotModalOpen, setHubspotModalOpen] = useState(false)
   const [googleModalOpen, setGoogleModalOpen] = useState(false)
   const [contentRefreshKey, setContentRefreshKey] = useState(0)
@@ -103,12 +101,10 @@ export default function DashboardOverviewPage() {
     const googleSuccess = searchParams.get('success') === 'google_connected'
 
     if (hubspotSuccess) {
-      setSuccessMessage('HubSpot has been connected successfully! 🎉')
       setContentRefreshKey(prevKey => prevKey + 1)
       router.replace('/dashboard', { scroll: false })
     } else if (googleSuccess && !googleOAuthSuccessRef.current) {
       googleOAuthSuccessRef.current = true
-      setSuccessMessage('Google Sheets has been connected successfully! 📊')
       // Clear the success parameter immediately to prevent multiple triggers
       router.replace('/dashboard', { scroll: false })
       // Refresh data once for Google connection
@@ -140,11 +136,25 @@ export default function DashboardOverviewPage() {
   const handleConnectionUpdate = async (service: 'hubspot' | 'google', connected: boolean) => {
     if (connected) {
       if (service === 'hubspot') {
-        setSuccessMessage('HubSpot has been connected successfully! 🎉')
         setHubspotModalOpen(false)
         setContentRefreshKey(prevKey => prevKey + 1)
       } else if (service === 'google') {
-        setSuccessMessage('Google Sheets has been connected successfully! 📊')
+        setGoogleModalOpen(false)
+      }
+
+      // Show loading state while refreshing data
+      setIsLoading(true)
+
+      // Force refresh user data to update connection status
+      await refreshUserData()
+
+      // Loading state will be cleared by refreshUserData
+    } else {
+      // Handle disconnection
+      if (service === 'hubspot') {
+        setHubspotModalOpen(false)
+        setContentRefreshKey(prevKey => prevKey + 1)
+      } else if (service === 'google') {
         setGoogleModalOpen(false)
       }
 
@@ -201,6 +211,8 @@ export default function DashboardOverviewPage() {
 
       if (service === 'hubspot') {
         setContentRefreshKey(prevKey => prevKey + 1)
+      } else if (service === 'google') {
+        setContentRefreshKey(prevKey => prevKey + 1)
       }
 
       await fetchUserData()
@@ -253,9 +265,6 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="w-full space-y-6">
-      {successMessage && (
-        <SuccessAlert message={successMessage} onClose={() => setSuccessMessage(null)} />
-      )}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Your Hubspot Management Partner</p>
