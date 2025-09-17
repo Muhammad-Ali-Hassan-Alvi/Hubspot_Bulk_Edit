@@ -36,7 +36,7 @@ interface AuditLog {
   resource_type: string
   resource_id: string | null
   details: {
-    content_type?: string
+    content_type?: string | { id: number; name: string; slug: string; created_at: string }
     [key: string]: any // Allows for other dynamic properties in details
   }
   created_at: string
@@ -418,9 +418,20 @@ export default function AuditLogs() {
                       {/* BRO: Conditionally render the Content Type data cell */}
                       {selectedLogType === 'bulk-editing-logs' && (
                         <td className="px-4 py-3">
-                          {log.details?.content_type || (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
+                          {(() => {
+                            const contentType = log.details?.content_type
+                            if (!contentType) {
+                              return <span className="text-muted-foreground">N/A</span>
+                            }
+                            // Handle both string and object content types
+                            if (typeof contentType === 'string') {
+                              return contentType
+                            }
+                            if (typeof contentType === 'object' && contentType.name) {
+                              return contentType.name
+                            }
+                            return <span className="text-muted-foreground">N/A</span>
+                          })()}
                         </td>
                       )}
                       <td className="px-4 py-3 text-left">
