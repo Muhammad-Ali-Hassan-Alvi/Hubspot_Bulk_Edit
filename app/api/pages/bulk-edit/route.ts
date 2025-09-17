@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-// import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
 
 async function handleStateChange(
   pageId: string,
@@ -71,26 +72,31 @@ export async function POST(request: NextRequest) {
       userId,
       selectedItems,
       updates,
-      hubspotToken,
       contentType: _contentType,
     } = await request.json()
 
-    if (!userId || !selectedItems || !updates || !hubspotToken) {
+    if (!userId || !selectedItems || !updates) {
       return NextResponse.json(
         { success: false, error: 'Missing required parameters' },
         { status: 400 }
       )
     }
 
-    const supabase = await createClient()
-
-    // Verify user authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user || user.id !== userId) {
+    // Get authenticated user and HubSpot token
+    const user = await getAuthenticatedUser()
+    if (user.id !== userId) {
       return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
+    }
+
+    // Get HubSpot authentication headers (handles token refresh automatically)
+    const hubspotHeaders = await getHubSpotAuthHeaders(user.id)
+    const hubspotToken = hubspotHeaders.Authorization?.replace('Bearer ', '') || ''
+
+    if (!hubspotToken) {
+      return NextResponse.json(
+        { success: false, error: 'HubSpot not connected' },
+        { status: 400 }
+      )
     }
 
     const results = []

@@ -518,6 +518,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
       return
     }
 
+
     setIsPublishing(true)
     try {
       // Get content type information for each selected item
@@ -534,8 +535,9 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         userId: user.id,
         selectedItems: selectedItemsWithContentType,
         updates: updates,
-        contentType: contentType,
+        contentType: contentType?.slug || contentType?.name,
       }
+
 
       const response = await fetch('/api/pages/bulk-edit', {
         method: 'POST',
