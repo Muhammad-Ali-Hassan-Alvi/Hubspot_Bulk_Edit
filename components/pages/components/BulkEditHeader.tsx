@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { X, PenSquare, RefreshCw, CalendarIcon, Loader2 } from 'lucide-react'
-import { useUserSettings } from '@/hooks/useUserSettings'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
@@ -75,7 +74,6 @@ export default function BulkEditHeader({
   const [dynamicFields, setDynamicFields] = useState<EditableField[]>([])
   const [loadingFields, setLoadingFields] = useState(false)
   const { toast } = useToast()
-  const { userSettings } = useUserSettings()
   const uploadFlow = useUploadFlow()
 
   // Fetch headers dynamically from database
@@ -90,6 +88,7 @@ export default function BulkEditHeader({
       const response = await fetch(`/api/hubspot/headers?${params}`)
       const data = await response.json()
 
+      console.log('umar data', data)
       if (data.success) {
         setDynamicFields(data.headers)
         console.log('Fetched dynamic headers:', data.headers)
@@ -120,7 +119,7 @@ export default function BulkEditHeader({
   // Fetch headers when content type changes
   useEffect(() => {
     if (_contentType) {
-      fetchHeaders(_contentType.name)
+      fetchHeaders(_contentType.slug)
     }
   }, [_contentType])
 
@@ -140,7 +139,7 @@ export default function BulkEditHeader({
   // Fetch specific dropdown options for a field
   const fetchFieldDropdownOptions = useCallback(
     async (fieldKey: string) => {
-      if (!userSettings?.hubspot_token_encrypted || loadedFields.has(fieldKey)) {
+      if (loadedFields.has(fieldKey)) {
         return
       }
 
@@ -150,7 +149,6 @@ export default function BulkEditHeader({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            hubspotToken: userSettings.hubspot_token_encrypted,
             contentType: _contentType?.name || '',
           }),
         })
@@ -169,7 +167,7 @@ export default function BulkEditHeader({
         setLoadingDropdownOptions(prev => ({ ...prev, [fieldKey]: false }))
       }
     },
-    [userSettings?.hubspot_token_encrypted, _contentType, loadedFields]
+    [_contentType, loadedFields]
   )
 
   // No pre-loading - everything is lazy loaded when clicked

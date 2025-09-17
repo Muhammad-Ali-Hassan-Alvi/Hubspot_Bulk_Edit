@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { isHeaderReadOnly, getHeaderInfo } from '@/lib/utils'
 import { getCombinedInAppEditFields } from '@/lib/utils'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
 
 // Cache for content types
 const contentTypesCache = new Map<string, { data: any; timestamp: number }>()
@@ -184,24 +186,11 @@ async function fetchAllFromEndpoint(
 
 export async function POST(request: NextRequest) {
   try {
-    const {
-      hubspotToken,
-      contentType = 'landing-pages',
-      limit = 100,
-      after = null,
-    } = await request.json()
+    const { contentType = 'landing-pages', limit = 100, after = null } = await request.json()
 
-    if (!hubspotToken || typeof hubspotToken !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Valid token is required' },
-        { status: 400 }
-      )
-    }
-
-    const headers = {
-      Authorization: `Bearer ${hubspotToken}`,
-      'Content-Type': 'application/json',
-    }
+    // Get authenticated user and refresh HubSpot token if needed
+    const user = await getAuthenticatedUser()
+    const headers = await getHubSpotAuthHeaders(user.id)
 
     if (contentType === 'all-pages') {
       // Fetch dynamic content types
@@ -294,6 +283,17 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Content fetch API error:', error)
+
+    // Handle specific token-related errors
+    if (error instanceof Error) {
+      if (
+        error.message.includes('HubSpot not connected') ||
+        error.message.includes('Token refresh failed')
+      ) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 })
+      }
+    }
+
     return NextResponse.json(
       { success: false, error: 'An internal server error occurred.' },
       { status: 500 }

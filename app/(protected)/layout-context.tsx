@@ -10,6 +10,7 @@ import type { User } from '@/lib/store/slices/userSlice'
 
 interface UserSettings {
   hubspot_token_encrypted?: string
+  hubspot_access_token?: string
   google_refresh_token?: string
 }
 
@@ -85,7 +86,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
         if (data.success && data.settings) {
           setConnectionStatus({
-            hubspot: !!data.settings.hubspot_token_encrypted,
+            hubspot: !!(
+              data.settings.hubspot_token_encrypted || data.settings.hubspot_access_token
+            ),
             google: !!data.settings.google_refresh_token,
             loading: false,
           })

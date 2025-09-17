@@ -167,7 +167,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            hubspotToken: hubspotToken,
             contentType: contentType?.slug ?? 'landing-pages',
             limit: 100, // Back to 100 for API limit
             after: after,
@@ -535,7 +534,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         userId: user.id,
         selectedItems: selectedItemsWithContentType,
         updates: updates,
-        hubspotToken: hubspotToken,
         contentType: contentType,
       }
 
@@ -846,16 +844,13 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            {hubspotToken && (
-              <HubSpotSearch
-                hubspotToken={hubspotToken}
-                contentType={contentType}
-                onSearchResults={handleSearchResults}
-                onClearSearch={handleClearSearch}
-                isSearching={isSearching}
-                setIsSearching={setIsSearching}
-              />
-            )}
+            <HubSpotSearch
+              contentType={contentType}
+              onSearchResults={handleSearchResults}
+              onClearSearch={handleClearSearch}
+              isSearching={isSearching}
+              setIsSearching={setIsSearching}
+            />
           </div>
           <Filters
             searchTerm={searchTerm}
@@ -880,7 +875,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             dateRange={dateRange}
             setDateRange={setDateRange}
             content={content}
-            hubspotToken={hubspotToken}
           />
         </CardContent>
       </Card>

@@ -1,7 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
-// import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { NextResponse } from 'next/server'
-import { getServerUserSettings } from '@/lib/store/serverUtils'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
 
 interface StatusCounts {
   published: number | null
@@ -11,7 +10,7 @@ interface StatusCounts {
 
 async function fetchStatusCounts(
   baseUrl: string,
-  accessToken: string,
+  headers: HeadersInit,
   hasStatus: boolean = false
 ): Promise<StatusCounts> {
   const baseUrlWithArchiveFilter = `${baseUrl}?archived=false`
@@ -23,11 +22,11 @@ async function fetchStatusCounts(
 
       const [totalResponse, draftResponse] = await Promise.all([
         fetch(`${totalUrl}&limit=1`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers,
           next: { revalidate: 0 },
         }),
         fetch(`${draftUrl}&limit=1`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers,
           next: { revalidate: 0 },
         }),
       ])
@@ -42,7 +41,7 @@ async function fetchStatusCounts(
       return { published: published < 0 ? 0 : published, draft, total }
     } else {
       const response = await fetch(`${baseUrlWithArchiveFilter}&limit=1`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers,
         next: { revalidate: 0 },
       })
 
@@ -58,12 +57,12 @@ async function fetchStatusCounts(
   }
 }
 
-async function fetchUniqueBlogsCount(accessToken: string): Promise<number> {
+async function fetchUniqueBlogsCount(headers: HeadersInit): Promise<number> {
   try {
     const response = await fetch(
       'https://api.hubapi.com/cms/v3/blogs/posts?limit=100&archived=false',
       {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers,
         next: { revalidate: 0 },
       }
     )
@@ -86,32 +85,10 @@ async function fetchUniqueBlogsCount(accessToken: string): Promise<number> {
 }
 
 export async function POST() {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError) {
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 })
-  }
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const userSettings = await getServerUserSettings(user.id)
-
-  if (!userSettings) {
-    return NextResponse.json({ error: 'Failed to fetch user settings' }, { status: 500 })
-  }
-
-  const accessToken = userSettings?.hubspot_token_encrypted || userSettings?.hubspot_access_token
-  if (!accessToken) {
-    return NextResponse.json({ error: 'HubSpot not connected' }, { status: 403 })
-  }
-
   try {
+    const user = await getAuthenticatedUser()
+    const headers = await getHubSpotAuthHeaders(user.id)
+
     const [
       landingPages,
       websitePages,
@@ -122,14 +99,14 @@ export async function POST() {
       urlRedirects,
       hubDbTables,
     ] = await Promise.all([
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/pages/landing-pages', accessToken, true),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/pages/site-pages', accessToken, true),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/posts', accessToken, true),
-      fetchUniqueBlogsCount(accessToken),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/tags', accessToken),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/authors', accessToken),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/url-redirects', accessToken),
-      fetchStatusCounts('https://api.hubapi.com/cms/v3/hubdb/tables', accessToken),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/pages/landing-pages', headers, true),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/pages/site-pages', headers, true),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/posts', headers, true),
+      fetchUniqueBlogsCount(headers),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/tags', headers),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/blogs/authors', headers),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/url-redirects', headers),
+      fetchStatusCounts('https://api.hubapi.com/cms/v3/hubdb/tables', headers),
     ])
 
     const counts = [
@@ -150,6 +127,17 @@ export async function POST() {
     })
   } catch (error) {
     console.error('❌ DETAILED ERROR fetching content counts:', error)
+
+    // Handle specific token-related errors
+    if (error instanceof Error) {
+      if (
+        error.message.includes('HubSpot not connected') ||
+        error.message.includes('Token refresh failed')
+      ) {
+        return NextResponse.json({ error: error.message }, { status: 401 })
+      }
+    }
+
     return NextResponse.json({ error: 'Failed to fetch content counts' }, { status: 500 })
   }
 }

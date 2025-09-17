@@ -56,6 +56,7 @@ interface ConfigurationsProps {
   filteredData: HeaderConfig[]
   isUpdating: boolean
   isSaving: boolean
+  isRefreshing?: boolean
   updateField: (index: number, field: string, value: any) => void
   removeRow: (index: number) => void
   sortConfig: SortConfig
@@ -67,6 +68,7 @@ const Configurations = ({
   filteredData,
   isUpdating,
   isSaving,
+  isRefreshing = false,
   updateField,
   removeRow,
   sortConfig,
@@ -223,12 +225,12 @@ const Configurations = ({
         </div>
       </div>
 
-      <div className="relative max-h-[600px] overflow-auto border rounded-lg">
-        {(isUpdating || isSaving) && (
+      <div className="relative border rounded-lg">
+        {(isUpdating || isSaving || isRefreshing) && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-20 flex items-center justify-center">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {isSaving ? 'Saving...' : 'Updating...'}
+              {isSaving ? 'Saving...' : isRefreshing ? 'Refreshing...' : 'Updating...'}
             </div>
           </div>
         )}

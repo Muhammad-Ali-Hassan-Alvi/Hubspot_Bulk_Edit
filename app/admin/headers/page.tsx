@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import ScrollToTopButton from '@/components/ui/scroll-to-top-button'
+import HeadersTableSkeleton from '@/components/ui/skeleton/HeadersTableSkeleton'
 import Filters from './components/filters/filters'
 import Configurations from './components/header-configurations/configurations'
 import MissingHeadersPopup from './components/missing-headers-popup'
@@ -53,12 +54,18 @@ export default function HeadersPage() {
   const { toast } = useToast()
 
   const [filteredData, setFilteredData] = useState<HeaderConfig[]>(initialData)
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [isUpdating, _setIsUpdating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: '', direction: null })
 
-  const getHeadersConfigurations = async () => {
+  const getHeadersConfigurations = async (isRefresh = false) => {
     try {
+      if (isRefresh) {
+        setIsRefreshing(true)
+      }
+
       console.log('Fetching headers from DB...')
       const res = await fetch('/api/hubspot/header-configurations')
 
@@ -88,6 +95,9 @@ export default function HeadersPage() {
         description: `Failed to refresh headers: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       })
+    } finally {
+      setIsInitialLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -171,21 +181,33 @@ export default function HeadersPage() {
   }
 
   const updateField = (index: number, field: string, value: any) => {
-    setIsUpdating(true)
-    setTimeout(() => {
-      const newData = [...data]
-      newData[index] = { ...newData[index], [field]: value }
-      setData(newData)
+    const newData = [...data]
+    newData[index] = { ...newData[index], [field]: value }
+    setData(newData)
+
+    // Apply current sorting to maintain sort order
+    if (sortConfig.direction && sortConfig.key) {
+      const sortedData = sortData(newData, sortConfig.key, sortConfig.direction)
+      setFilteredData(sortedData)
+    } else {
       setFilteredData(newData)
-      checkForChanges(newData)
-      setIsUpdating(false)
-    }, 100) // Small delay to show the loader
+    }
+
+    checkForChanges(newData)
   }
 
   const removeRow = (index: number) => {
     const newData = data.filter((_, i) => i !== index)
     setData(newData)
-    setFilteredData(newData)
+
+    // Apply current sorting to maintain sort order
+    if (sortConfig.direction && sortConfig.key) {
+      const sortedData = sortData(newData, sortConfig.key, sortConfig.direction)
+      setFilteredData(sortedData)
+    } else {
+      setFilteredData(newData)
+    }
+
     checkForChanges(newData)
   }
 
@@ -250,8 +272,19 @@ export default function HeadersPage() {
             <CardTitle className="flex justify-between items-center">
               <span>Header Configuration Management</span>
               <div className="flex gap-2">
-                <Button onClick={getHeadersConfigurations} variant="outline">
-                  Refresh Headers
+                <Button
+                  onClick={() => getHeadersConfigurations(true)}
+                  variant="outline"
+                  disabled={isRefreshing || isInitialLoading}
+                >
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Refresh Headers'
+                  )}
                 </Button>
                 <MissingHeadersPopup />
                 {/* <DefaultConfigurationPopup /> */}
@@ -279,31 +312,43 @@ export default function HeadersPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Filters Section */}
-            <Filters
-              data={data}
-              filteredData={filteredData}
-              setFilteredData={newFilteredData => {
-                // Apply current sorting to the newly filtered data
-                if (sortConfig.direction && sortConfig.key) {
-                  const sortedData = sortData(newFilteredData, sortConfig.key, sortConfig.direction)
-                  setFilteredData(sortedData)
-                } else {
-                  setFilteredData(newFilteredData)
-                }
-              }}
-            />
+            {/* Show skeleton loader during initial load */}
+            {isInitialLoading ? (
+              <HeadersTableSkeleton rows={10} />
+            ) : (
+              <>
+                {/* Filters Section */}
+                <Filters
+                  data={data}
+                  filteredData={filteredData}
+                  setFilteredData={newFilteredData => {
+                    // Apply current sorting to the newly filtered data
+                    if (sortConfig.direction && sortConfig.key) {
+                      const sortedData = sortData(
+                        newFilteredData,
+                        sortConfig.key,
+                        sortConfig.direction
+                      )
+                      setFilteredData(sortedData)
+                    } else {
+                      setFilteredData(newFilteredData)
+                    }
+                  }}
+                />
 
-            <Configurations
-              data={data}
-              filteredData={filteredData}
-              isUpdating={isUpdating}
-              isSaving={isSaving}
-              updateField={updateField}
-              removeRow={removeRow}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-            />
+                <Configurations
+                  data={data}
+                  filteredData={filteredData}
+                  isUpdating={isUpdating}
+                  isSaving={isSaving}
+                  isRefreshing={isRefreshing}
+                  updateField={updateField}
+                  removeRow={removeRow}
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -16,7 +16,6 @@ interface HubSpotContent {
 }
 
 interface HubSpotSearchProps {
-  hubspotToken: string
   contentType?: ContentTypeT
   onSearchResults: (results: HubSpotContent[], total: number, searchTerm: string) => void
   onClearSearch: () => void
@@ -25,7 +24,6 @@ interface HubSpotSearchProps {
 }
 
 export default function HubSpotSearch({
-  hubspotToken,
   contentType,
   onSearchResults,
   onClearSearch,
@@ -39,7 +37,7 @@ export default function HubSpotSearch({
   // Function to perform search using HubSpot API
   const performSearch = useCallback(
     async (term: string) => {
-      if (!term.trim() || !hubspotToken) {
+      if (!term.trim()) {
         onClearSearch()
         return
       }
@@ -51,9 +49,8 @@ export default function HubSpotSearch({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            hubspotToken,
             searchTerm: term.trim(),
-            contentType,
+            contentType: contentType?.slug || 'all',
             limit: 100,
           }),
         })
@@ -94,7 +91,7 @@ export default function HubSpotSearch({
         setIsSearching(false)
       }
     },
-    [hubspotToken, contentType, onSearchResults, onClearSearch, setIsSearching, toast]
+    [contentType, onSearchResults, onClearSearch, setIsSearching, toast]
   )
 
   // Effect to trigger search when debounced term changes

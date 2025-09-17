@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Youtube, Linkedin } from 'lucide-react'
+// import { Youtube, Linkedin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface FooterProps {
@@ -37,7 +37,7 @@ export default function Footer({ className }: FooterProps) {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-4">
+        {/* <div className="flex items-center gap-4">
           <Link
             href="https://www.youtube.com/@SmuvesHQ"
             target="_blank"
@@ -54,7 +54,7 @@ export default function Footer({ className }: FooterProps) {
           >
             <Linkedin className="h-5 w-5 text-muted-foreground transition-colors hover:text-primary" />
           </Link>
-        </div>
+        </div> */}
       </div>
     </footer>
   )

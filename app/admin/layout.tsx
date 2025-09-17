@@ -185,16 +185,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             />
           </div>
         </Link>
-        {!isSidebarCollapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="h-8 w-8 p-0"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
       {/* Mobile close button */}

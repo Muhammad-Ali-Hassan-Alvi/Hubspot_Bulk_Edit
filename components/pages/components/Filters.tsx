@@ -56,7 +56,6 @@ interface FilterProps {
   dateRange?: [Date | null, Date | null]
   setDateRange?: (dateRange: [Date | null, Date | null]) => void
   content?: HubSpotContent[]
-  hubspotToken?: string
 }
 
 const DatePickerCustomInput = forwardRef(({ value, onClick, placeholder }: any, ref: any) => (
@@ -99,7 +98,6 @@ export default function Filters({
   dateRange,
   setDateRange,
   content = [],
-  hubspotToken,
 }: FilterProps) {
   // Dynamic filterable fields from database
   const [filterableFields, setFilterableFields] = useState<string[]>([])
@@ -179,7 +177,7 @@ export default function Filters({
   useEffect(() => {
     if (contentType) {
       // contentType is already in slug format (e.g., "landing-pages")
-      fetchFilterableFields(contentType.name)
+      fetchFilterableFields(contentType.slug)
     } else {
       setFilterableFields(['name', 'slug', 'htmlTitle', 'language', 'state', 'publishDate'])
     }
@@ -197,7 +195,7 @@ export default function Filters({
   // Fetch specific filter dropdown options
   const fetchFilterDropdownOptions = useCallback(
     async (fieldKey: string) => {
-      if (!hubspotToken || loadedFilterFields.has(fieldKey)) {
+      if (loadedFilterFields.has(fieldKey)) {
         return
       }
 
@@ -207,7 +205,6 @@ export default function Filters({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            hubspotToken: hubspotToken,
             contentType: contentType || 'all-pages',
             specificField: fieldKey,
           }),
@@ -227,7 +224,7 @@ export default function Filters({
         setLoadingFilterOptions(prev => ({ ...prev, [fieldKey]: false }))
       }
     },
-    [hubspotToken, contentType, loadedFilterFields]
+    [contentType, loadedFilterFields]
   )
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Card,
   CardContent,
@@ -28,14 +28,50 @@ interface CountData {
   total: number
 }
 
-export const ContentCountsCard = ({ refreshKey }: { refreshKey: number }) => {
+interface ContentCountsCardProps {
+  refreshKey: number
+  isHubSpotConnected: boolean
+  isCheckingConnection: boolean
+}
+
+export const ContentCountsCard = ({
+  refreshKey,
+  isHubSpotConnected,
+  isCheckingConnection,
+}: ContentCountsCardProps) => {
   const [data, setData] = useState<CountData[]>([])
   const [disclaimer, setDisclaimer] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const isRequestInProgressRef = useRef(false)
+  const lastRefreshKeyRef = useRef<number>(-1)
 
   const refreshData = useCallback(async () => {
+    // Only fetch if HubSpot is connected
+    if (!isHubSpotConnected) {
+      console.log('🚫 ContentCountsCard: HubSpot not connected, skipping API call')
+      setIsRefreshing(false)
+      setError(null)
+      setData([])
+      setDisclaimer(null)
+      return
+    }
+
+    // Prevent multiple simultaneous requests
+    if (isRequestInProgressRef.current) {
+      console.log('🚫 ContentCountsCard: Request already in progress, skipping')
+      return
+    }
+
+    // Only fetch if refreshKey has actually changed
+    if (lastRefreshKeyRef.current === refreshKey) {
+      console.log('🚫 ContentCountsCard: RefreshKey unchanged, skipping')
+      return
+    }
+
+    isRequestInProgressRef.current = true
+    lastRefreshKeyRef.current = refreshKey
     setIsRefreshing(true)
     setError(null)
 
@@ -52,19 +88,29 @@ export const ContentCountsCard = ({ refreshKey }: { refreshKey: number }) => {
       setDisclaimer(result.disclaimer || null)
       setLastUpdated(new Date())
     } catch (err) {
+      console.error('❌ ContentCountsCard: API call failed:', err)
       setError(err instanceof Error ? err.message : 'An unknown error occurred.')
       setData([])
       setDisclaimer(null)
     } finally {
       setIsRefreshing(false)
+      isRequestInProgressRef.current = false
     }
-  }, [])
+  }, [refreshKey, isHubSpotConnected])
 
   useEffect(() => {
     refreshData()
-  }, [refreshKey, refreshData])
+  }, [refreshKey, isHubSpotConnected]) // Trigger when refreshKey or connection status changes
 
-  if (isRefreshing) {
+  // Cleanup effect to reset flags
+  useEffect(() => {
+    return () => {
+      isRequestInProgressRef.current = false
+    }
+  }, [])
+
+  // Show loading skeleton while checking connection or fetching data
+  if (isRefreshing || isCheckingConnection) {
     return (
       <div className="space-y-2">
         <div className="text-sm text-muted-foreground text-right">
@@ -82,7 +128,7 @@ export const ContentCountsCard = ({ refreshKey }: { refreshKey: number }) => {
               <Button
                 onClick={refreshData}
                 className="bg-foreground"
-                disabled={isRefreshing}
+                disabled={isRefreshing || isCheckingConnection}
                 size="sm"
               >
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -91,6 +137,34 @@ export const ContentCountsCard = ({ refreshKey }: { refreshKey: number }) => {
             </div>
           </CardHeader>
           <TableSkeleton rows={5} headers={['Content Type', 'Published', 'Draft', 'Total']} />
+        </Card>
+      </div>
+    )
+  }
+
+  // Show a message when HubSpot is not connected
+  if (!isHubSpotConnected) {
+    return (
+      <div className="space-y-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-background">
+            <div>
+              <CardTitle className="text-foreground">Content Counts</CardTitle>
+              <CardDescription className="mt-1">
+                An overview of your non-archived content assets.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="flex flex-col items-center justify-center py-12">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-lg font-semibold mb-2">HubSpot Not Connected</p>
+              <p className="text-sm text-muted-foreground text-center max-w-md">
+                Connect your HubSpot account to view content counts for your pages, blog posts, and
+                other assets.
+              </p>
+            </div>
+          </CardContent>
         </Card>
       </div>
     )

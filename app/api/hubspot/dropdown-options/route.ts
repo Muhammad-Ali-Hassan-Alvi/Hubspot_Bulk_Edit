@@ -1,6 +1,8 @@
 // In api/hubspot/dropdown-options/route.ts
 
 import { type NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
 
 const dropdownCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_DURATION = 5 * 60 * 1000
@@ -104,22 +106,14 @@ async function fetchAllFromEndpoint(url: string, headers: HeadersInit): Promise<
 
 export async function POST(request: NextRequest) {
   try {
-    const { hubspotToken, useCache = true, specificField } = await request.json()
+    const { useCache = true, specificField } = await request.json()
 
-    if (!hubspotToken || typeof hubspotToken !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Valid token is required' },
-        { status: 400 }
-      )
-    }
+    // Get authenticated user and refresh HubSpot token if needed
+    const user = await getAuthenticatedUser()
+    const headers = await getHubSpotAuthHeaders(user.id)
 
-    const headers = {
-      Authorization: `Bearer ${hubspotToken}`,
-      'Content-Type': 'application/json',
-    }
-
-    // Create cache key based on token (first 8 chars for privacy)
-    const cacheKey = `dropdown-${hubspotToken.substring(0, 8)}`
+    // Create cache key based on user ID for privacy
+    const cacheKey = `dropdown-${user.id.substring(0, 8)}`
 
     // Use cache if enabled
     if (useCache) {
@@ -379,6 +373,17 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Dropdown options API error:', error)
+
+    // Handle specific token-related errors
+    if (error instanceof Error) {
+      if (
+        error.message.includes('HubSpot not connected') ||
+        error.message.includes('Token refresh failed')
+      ) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 })
+      }
+    }
+
     return NextResponse.json(
       { success: false, error: 'An internal server error occurred.' },
       { status: 500 }

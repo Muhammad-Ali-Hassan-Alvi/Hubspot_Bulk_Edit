@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getRequestOrigin } from '@/lib/utils'
+import { refreshHeaders } from '@/lib/headers-configuration'
 
 export async function GET(request: NextRequest) {
   try {
     // 1. Fetch headers from the refresh-headers endpoint
-    const origin = getRequestOrigin(request)
-    const hubspotResponse = await fetch(
-      `${origin}/api/hubspot/header-configurations/refresh-headers`
-    )
-
-    if (!hubspotResponse.ok) {
-      throw new Error('Failed to fetch HubSpot headers')
+    const resultOrResponse = await refreshHeaders(request)
+    if (resultOrResponse instanceof NextResponse) {
+      return resultOrResponse
     }
 
-    const hubspotData = await hubspotResponse.json()
-    const hubspotHeaders = hubspotData.headers || []
+    const hubspotHeaders = resultOrResponse.headers || []
 
     // 2. Fetch existing headers from database with their configurations
     const supabase = await createClient()
@@ -27,8 +22,6 @@ export async function GET(request: NextRequest) {
           content_types (slug)
         )
       `)
-
-    console.log('umar dbHeaders length', dbHeaders?.length)
 
     if (dbError) {
       console.error('Failed to fetch database headers:', dbError)
@@ -68,11 +61,6 @@ export async function GET(request: NextRequest) {
     // For HubSpot: deduplicate by header name for display purposes
     const hubspotUniqueNames = new Set(hubspotHeaders.map((h: any) => h.header))
     const totalHubSpotUniqueHeaders = hubspotUniqueNames.size
-
-    console.log('HubSpot total headers (with data type variants):', hubspotHeaders.length)
-    console.log('HubSpot unique header names:', totalHubSpotUniqueHeaders)
-    console.log('Database unique header names:', dbUniqueNames.size)
-    console.log('Missing composite headers (name + data type):', missingHeaders.length)
 
     // 6. Return comparison result with enhanced information
     return NextResponse.json({

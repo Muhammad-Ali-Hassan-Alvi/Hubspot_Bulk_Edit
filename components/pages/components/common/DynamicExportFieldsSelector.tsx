@@ -37,7 +37,7 @@ export default function DynamicExportFieldsSelector({
     setLoading(true)
     try {
       const params = new URLSearchParams({
-        contentType: contentType.name,
+        contentType: contentType.slug,
         // Get all headers for export - no specific filtering
       })
 

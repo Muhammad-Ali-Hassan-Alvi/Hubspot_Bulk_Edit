@@ -20,7 +20,7 @@ import {
   Plug,
 } from 'lucide-react'
 import { useLayout } from '@/app/(protected)/layout-context'
-import { useLoading } from '@/app/(protected)/loading-context'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,6 @@ export default function Navbar() {
   // const pathname = usePathname()
   // const pageTitle = getTitleFromPathname(pathname)
   const { setTheme } = useTheme()
-  const { setIsLoading } = useLoading()
   const { userSettings: _userSettings } = useUserSettings()
 
   // **THE FIX IS HERE**: Rename `isSidebarCollapsed` to `isCollapsed` for local use
@@ -62,7 +61,7 @@ export default function Navbar() {
   } = useLayout()
 
   const handleNavigation = () => {
-    setIsLoading(true)
+    redirect('/dashboard')
   }
 
   const StatusIndicator = ({ connected }: { connected: boolean }) => (
@@ -172,9 +171,9 @@ export default function Navbar() {
                 e.preventDefault()
               }}
             >
-              <DropdownMenuItem>
+              <DropdownMenuItem className="flex items-center">
                 <CreditCard className="mr-2 h-4 w-4" />
-                <span>Upgrade Plan</span>
+                <span>Change Plan</span>
                 <ComingSoonBadge className="ml-auto text-xs" />
               </DropdownMenuItem>
             </Link>

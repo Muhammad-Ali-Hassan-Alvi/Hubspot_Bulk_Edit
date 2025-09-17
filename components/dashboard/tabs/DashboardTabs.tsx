@@ -25,6 +25,18 @@ export default function DashboardOverviewPage() {
   const [isLoading, setIsLoading] = useState(true)
   const isRefreshingRef = useRef(false)
   const googleOAuthSuccessRef = useRef(false)
+  const hubspotOAuthSuccessRef = useRef(false)
+
+  // For new users, userSettings might be null - that's okay, show the connection options
+  const isHubSpotConnected = userSettings
+    ? !!userSettings.hubspot_token_encrypted ||
+      !!userSettings.hubspot_access_token ||
+      !!userSettings.hubspot_connection_type
+    : false
+
+  const isGoogleConnected = userSettings
+    ? !!userSettings.google_refresh_token || !!userSettings.google_access_token
+    : false
 
   const fetchUserData = useCallback(async () => {
     if (!user) {
@@ -100,9 +112,16 @@ export default function DashboardOverviewPage() {
     const hubspotSuccess = searchParams.get('hubspot_oauth') === 'success'
     const googleSuccess = searchParams.get('success') === 'google_connected'
 
-    if (hubspotSuccess) {
-      setContentRefreshKey(prevKey => prevKey + 1)
+    if (hubspotSuccess && !hubspotOAuthSuccessRef.current) {
+      hubspotOAuthSuccessRef.current = true
+      setContentRefreshKey(prevKey => {
+        return prevKey + 1
+      })
       router.replace('/dashboard', { scroll: false })
+      // Reset the flag after a delay
+      setTimeout(() => {
+        hubspotOAuthSuccessRef.current = false
+      }, 2000)
     } else if (googleSuccess && !googleOAuthSuccessRef.current) {
       googleOAuthSuccessRef.current = true
       // Clear the success parameter immediately to prevent multiple triggers
@@ -116,7 +135,7 @@ export default function DashboardOverviewPage() {
         }, 2000)
       }, 100)
     }
-  }, [searchParams, router, fetchUserData, refreshUserData])
+  }, [searchParams, router, fetchUserData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Only refresh data when userSettings changes or when explicitly needed
   useEffect(() => {
@@ -129,6 +148,7 @@ export default function DashboardOverviewPage() {
   useEffect(() => {
     return () => {
       googleOAuthSuccessRef.current = false
+      hubspotOAuthSuccessRef.current = false
       isRefreshingRef.current = false
     }
   }, [])
@@ -137,7 +157,9 @@ export default function DashboardOverviewPage() {
     if (connected) {
       if (service === 'hubspot') {
         setHubspotModalOpen(false)
-        setContentRefreshKey(prevKey => prevKey + 1)
+        setContentRefreshKey(prevKey => {
+          return prevKey + 1
+        })
       } else if (service === 'google') {
         setGoogleModalOpen(false)
       }
@@ -153,7 +175,9 @@ export default function DashboardOverviewPage() {
       // Handle disconnection
       if (service === 'hubspot') {
         setHubspotModalOpen(false)
-        setContentRefreshKey(prevKey => prevKey + 1)
+        setContentRefreshKey(prevKey => {
+          return prevKey + 1
+        })
       } else if (service === 'google') {
         setGoogleModalOpen(false)
       }
@@ -210,9 +234,13 @@ export default function DashboardOverviewPage() {
       })
 
       if (service === 'hubspot') {
-        setContentRefreshKey(prevKey => prevKey + 1)
+        setContentRefreshKey(prevKey => {
+          return prevKey + 1
+        })
       } else if (service === 'google') {
-        setContentRefreshKey(prevKey => prevKey + 1)
+        setContentRefreshKey(prevKey => {
+          return prevKey + 1
+        })
       }
 
       await fetchUserData()
@@ -247,21 +275,14 @@ export default function DashboardOverviewPage() {
             <ConnectCardSkeleton />
           </div>
         </div>
-        <ContentCountsCard refreshKey={contentRefreshKey} />
+        <ContentCountsCard
+          isCheckingConnection={isLoading}
+          refreshKey={contentRefreshKey}
+          isHubSpotConnected={isHubSpotConnected}
+        />
       </div>
     )
   }
-
-  // For new users, userSettings might be null - that's okay, show the connection options
-  const isHubSpotConnected = userSettings
-    ? !!userSettings.hubspot_token_encrypted ||
-      !!userSettings.hubspot_access_token ||
-      !!userSettings.hubspot_connection_type
-    : false
-
-  const isGoogleConnected = userSettings
-    ? !!userSettings.google_refresh_token || !!userSettings.google_access_token
-    : false
 
   return (
     <div className="w-full space-y-6">
@@ -309,7 +330,11 @@ export default function DashboardOverviewPage() {
           <AccountPlan />
         </div>
       </div>
-      <ContentCountsCard refreshKey={contentRefreshKey} />
+      <ContentCountsCard
+        isCheckingConnection={isLoading}
+        refreshKey={contentRefreshKey}
+        isHubSpotConnected={isHubSpotConnected}
+      />
     </div>
   )
 }
