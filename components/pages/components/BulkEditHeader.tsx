@@ -436,9 +436,9 @@ export default function BulkEditHeader({
               <SelectValue placeholder="No Value" />
             </SelectTrigger>
           </Select>
-          <p className="text-xs text-muted-foreground">
+          {/* <p className="text-xs text-muted-foreground">
             No data found for this field in your HubSpot account
-          </p>
+          </p> */}
         </div>
       )
     }
