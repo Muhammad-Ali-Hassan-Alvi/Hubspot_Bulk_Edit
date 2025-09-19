@@ -50,7 +50,7 @@ export function Toaster() {
         )
       })}
       {/* Set position to top right */}
-      <ToastViewport className="fixed bottom-4 right-4 z-[100] flex flex-col max-w-[420px]" />
+      <ToastViewport className="fixed bottom-4 right-4 z-[300] flex flex-col max-w-[420px]" />
     </ToastProvider>
   )
 }
