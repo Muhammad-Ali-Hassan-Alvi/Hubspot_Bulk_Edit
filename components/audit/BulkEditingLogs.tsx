@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -132,9 +133,6 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
     return []
   }
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString()
-  }
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
@@ -224,7 +222,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                             <span className="ml-1">{log.status}</span>
                           </Badge>
                           <span className="text-sm text-gray-500">
-                            {formatTimestamp(log.timestamp)}
+                            <DateDisplay date={log.timestamp} format="time" showTime={true} />
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
@@ -262,7 +260,7 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                           <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <strong>Timestamp:</strong> {formatTimestamp(log.timestamp)}
+                                <strong>Timestamp:</strong> <DateDisplay date={log.timestamp} format="time" showTime={true} />
                               </div>
                               <div>
                                 <strong>Status:</strong>

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 // ... (interfaces and helper functions remain the same)
 
@@ -68,7 +69,7 @@ const renderCellContent = (item: HubSpotContent, columnKey: string) => {
     return <span className="text-muted-foreground">N/A</span>
   }
   if (['updatedAt', 'createdAt', 'publishDate'].includes(columnKey)) {
-    return new Date(value).toLocaleDateString()
+    return <DateDisplay date={value} format="short" />
   }
   if (columnKey === 'state') {
     return (

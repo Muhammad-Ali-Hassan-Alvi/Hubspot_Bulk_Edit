@@ -2,6 +2,7 @@ import React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Clock, User, FileText, ArrowRight } from 'lucide-react'
 
 interface Change {
@@ -103,7 +104,7 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  {new Date(selectedLog.timestamp).toLocaleString()}
+                  <DateDisplay date={selectedLog.timestamp} format="time" showTime={true} />
                 </p>
               </CardContent>
             </Card>

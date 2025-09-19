@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
 import TableSkeleton from '@/components/ui/skeleton/TableSkeleton'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface CountData {
   type: string
@@ -174,8 +175,7 @@ export const ContentCountsCard = ({
     <div className="space-y-2">
       {lastUpdated && (
         <div className="text-sm text-muted-foreground text-right ">
-          Last Updated: {lastUpdated.toLocaleDateString('en-GB')},{' '}
-          {lastUpdated.toLocaleTimeString('en-GB')}
+          Last Updated: <DateDisplay date={lastUpdated} format="time" showTime={true} />
         </div>
       )}
       <Card className="overflow-hidden">

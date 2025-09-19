@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { useToast } from '@/hooks/use-toast'
 import { Download, Filter, RefreshCw } from 'lucide-react'
 
@@ -361,7 +362,7 @@ export default function PageSync({ userId, sheetId, hubspotToken, onSyncComplete
                             </TableCell>
                             <TableCell className="text-sm font-mono">{page.slug}</TableCell>
                             <TableCell className="text-sm">
-                              {new Date(page.updatedAt).toLocaleDateString()}
+                              <DateDisplay date={page.updatedAt} format="short" />
                             </TableCell>
                           </TableRow>
                         ))}

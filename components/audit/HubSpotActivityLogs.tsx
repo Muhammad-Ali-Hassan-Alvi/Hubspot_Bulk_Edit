@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/c
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import {
   Select,
   SelectContent,
@@ -230,16 +231,6 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
     setIsModalOpen(true)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    })
-  }
 
   // Group changes by page for the modal
   const getPageChanges = (log: HubSpotLog): PageChanges[] => {
@@ -381,7 +372,7 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
                       <td className="px-4 py-3">
                         {getStatusBadge(log.status || 'Unknown', log.failure_count)}
                       </td>
-                      <td className="px-4 py-3">{formatDate(log.created_at)}</td>
+                      <td className="px-4 py-3"><DateDisplay date={log.created_at} format="short" /></td>
                       <td className="px-4 py-3">
                         <Button
                           variant="link"
@@ -464,8 +455,7 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
                   <div className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     <span className="font-semibold text-sm">
-                      {new Date(selectedLog.created_at).toLocaleDateString('en-GB')} at{' '}
-                      {new Date(selectedLog.created_at).toLocaleTimeString('en-GB')}
+                      <DateDisplay date={selectedLog.created_at} format="time" showTime={true} />
                     </span>
                   </div>
                 </div>

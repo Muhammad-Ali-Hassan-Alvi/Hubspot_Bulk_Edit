@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/c
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import {
   Select,
   SelectContent,
@@ -230,16 +231,6 @@ export default function AuditLogs() {
     setIsStatusModalOpen(true)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    })
-  }
 
   const uniqueActions = [...new Set(logs.map(log => log.action_type))]
   const uniqueResources = [...new Set(logs.map(log => log.resource_type))]
@@ -442,7 +433,7 @@ export default function AuditLogs() {
                           {getStatusBadge(log.status || 'Unknown', log.failure_count)}
                         </div>
                       </td>
-                      <td className="px-4 py-3">{formatDate(log.created_at)}</td>
+                      <td className="px-4 py-3"><DateDisplay date={log.created_at} format="short" /></td>
                       <td className="px-4 py-3">
                         <Button
                           variant="link"

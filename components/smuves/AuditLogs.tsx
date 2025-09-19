@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -417,7 +418,7 @@ export default function AuditLogs({ user, onExport }: AuditLogsProps) {
                   {filteredLogs.map(log => (
                     <TableRow key={log.id}>
                       <TableCell className="text-sm">
-                        {new Date(log.created_at).toLocaleString()}
+                        <DateDisplay date={log.created_at} format="time" showTime={true} />
                       </TableCell>
                       <TableCell>{getActionBadge(log.action_type)}</TableCell>
                       <TableCell>
