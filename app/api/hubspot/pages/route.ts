@@ -244,17 +244,10 @@ export async function POST(request: NextRequest) {
     const res = await fetch(url.toString(), { headers })
 
     if (!res.ok) {
-      let errorMessage = `HTTP ${res.status}: ${res.statusText}`
-      try {
-        const errorBody = await res.json()
-        errorMessage = errorBody.message || errorBody.error || errorMessage
-      } catch {
-        // Silent error parsing
-      }
       return NextResponse.json(
         {
           success: false,
-          error: `Failed to fetch from HubSpot: ${errorMessage}`,
+          error: `Requested data could not be found in HubSpot.`,
         },
         { status: res.status }
       )

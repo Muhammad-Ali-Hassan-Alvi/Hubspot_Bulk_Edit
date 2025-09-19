@@ -4,15 +4,21 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { TabsContent } from '@/components/ui/tabs'
 import { DialogFooter } from '@/components/ui/dialog'
-import { FileSpreadsheet, ExternalLink, RefreshCw } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { FileSpreadsheet, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import DynamicExportFieldsSelector from './common/DynamicExportFieldsSelector'
-import WarningModal from '@/components/modals/WarningModal'
 import type { User } from '@supabase/supabase-js'
 import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
-import { logExportActivityAction } from '@/app/actions/exportActions'
-import { ContentTypeT } from '@/lib/content-types'
+import { logExportActivity } from '@/lib/audit-logger'
 import { saveUserExport } from '@/lib/export-logger'
+import { ContentTypeT } from '@/lib/content-types'
 
 interface GSheetsExportTabProps {
   availableColumns: { key: string; label: string }[]
@@ -40,7 +46,6 @@ export default function GSheetsExportTab({
   userSettings,
   contentType,
 }: GSheetsExportTabProps) {
-  // Debug: Check userSettings in export - REMOVED TO PREVENT CONSOLE SPAM
   const [loading, setLoading] = useState(false)
   const [selectedSheetId, setSelectedSheetId] = useState<string>('')
   const [_selectedTabId, setSelectedTabId] = useState<string>('')
@@ -89,29 +94,23 @@ export default function GSheetsExportTab({
         })
         setExportSuccessUrl(result.url)
 
-        // Save to user_exports table for import validation
+        // Log to existing audit system
+        await logExportActivity(user.id, 'sheets', {
+          content_type: contentType,
+          items_count: dataToExport.length,
+          columns_exported: [], // 👈 pass empty array so columns_exported is skipped
+          tab_name: tabName?.trim() || 'Default',
+          sheet_url: `https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`,
+          sheet_name: `[${selectedSheetName}](${`https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`})`, // markdown clickable
+        })
+
+        // Log to new user_exports table
         await saveUserExport({
           contentType: contentType?.id || 0,
           exportType: 'google-sheets',
-          itemsCount: dataToExport.length,
           sheetId: selectedSheetId,
-          tabId: _selectedTabId,
-          tabName: tabName?.trim() || 'Default',
+          tabId: _selectedTabId || undefined,
         })
-
-        // Also log to audit system for general activity tracking
-        const logResult = await logExportActivityAction('sheets', {
-          content_type: contentType?.name || 'Unknown',
-          items_count: dataToExport.length,
-          columns_exported: [],
-          tab_name: tabName?.trim() || 'Default',
-          sheet_url: `https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`,
-          sheet_name: `[${selectedSheetName}](${`https://docs.google.com/spreadsheets/d/${selectedSheetId}/edit#gid=0`})`,
-        })
-
-        if (!logResult.success) {
-          console.error('Failed to log export activity:', logResult.error)
-        }
         // Reset sheet and tab selection after successful export
         setSelectedSheetId('')
         setSelectedTabId('')
@@ -210,7 +209,6 @@ export default function GSheetsExportTab({
           onTabNameChange={handleTabNameChange}
           onTabSelectionChange={handleTabSelectionChange}
           setExportingToSheets={setExportingToSheets}
-          showNewOptions={true}
         />
 
         {/* Show sheet link when a sheet is selected */}
@@ -264,15 +262,26 @@ export default function GSheetsExportTab({
         </Button>
       </DialogFooter>
 
-      <WarningModal
-        isOpen={showWarningDialog}
-        onClose={handleCancelExport}
-        onConfirm={handleConfirmExport}
-        title="Google Sheets Export Warning"
-        description="Exporting data to Google Sheets will overwrite the existing data in the selected tab. This action cannot be undone. Are you sure you want to proceed?"
-        confirmText="Confirm Export"
-        cancelText="Cancel"
-      />
+      <Dialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Warning
+            </DialogTitle>
+            <DialogDescription>
+              Exporting data to Google Sheets will overwrite the existing data in the selected tab.
+              This action cannot be undone. Are you sure you want to proceed?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelExport}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmExport}>Confirm Export</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TabsContent>
   )
 }

@@ -4,9 +4,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import {
   ShieldCheck,
   X,
@@ -50,19 +49,33 @@ export default function Sidebar() {
     setMounted(true)
   }, [])
 
-  // Debug: Log theme values
-  // console.log('Theme debug:', { theme, resolvedTheme, mounted })
-
-  // Determine which logo to show based on theme and sidebar state
-  const logoSrc =
-    mounted && resolvedTheme === 'dark'
+  // Memoize the logo source to prevent unnecessary re-renders
+  const logoSrc = useMemo(() => {
+    if (!mounted) return '/Logo-Light.png' // Default fallback
+    return resolvedTheme === 'dark'
       ? isCollapsed
         ? '/Logo-Shrink-Dark.png'
         : '/Logo-Dark.png'
       : isCollapsed
         ? '/Logo-Shrink-Light.png'
         : '/Logo-Light.png'
-  // console.log('Logo src:', logoSrc, 'Collapsed:', isCollapsed)
+  }, [mounted, resolvedTheme, isCollapsed])
+
+  // Don't render until mounted to prevent flash
+  if (!mounted) {
+    return (
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-10 lg:flex lg:flex-col lg:overflow-y-auto custom-scrollbar lg:w-64">
+        <div className="flex h-full flex-col bg-background/60 shadow-md backdrop-blur-lg">
+          <div className="flex items-center justify-center h-16 px-4">
+            <div className="w-8 h-8 bg-muted rounded"></div>
+          </div>
+        </div>
+      </aside>
+    )
+  }
+
+  // Debug: Log theme values
+  // console.log('Theme debug:', { theme, resolvedTheme, mounted })
 
   const handleNavigation = () => {
     setIsLoading(true)
@@ -74,7 +87,7 @@ export default function Sidebar() {
       href={link.href}
       onClick={handleNavigation}
       className={cn(
-        'flex items-center rounded-lg py-2 font-medium transition-all group',
+        'flex items-center rounded-lg py-2 font-medium group',
         pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href))
           ? 'bg-[linear-gradient(to_right,_#66A9EA,_#76E8A2)] text-[hsl(var(--sidebar-accent-foreground))] shadow-md'
           : 'hover:bg-[linear-gradient(to_right,_#66A9EA22,_#76E8A222)] hover:text-[#66A9EA]',
@@ -84,39 +97,27 @@ export default function Sidebar() {
     >
       <link.icon
         className={cn(
-          'h-5 w-5 shrink-0 transition-all group-hover:scale-110',
+          'h-5 w-5 shrink-0',
           // Icon color matches text color for active and hover states
           pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href))
             ? 'text-white'
             : 'text-foreground group-hover:text-[#66A9EA]'
         )}
       />
-      <span
-        className={cn(
-          'overflow-hidden transition-all duration-200',
-          isCollapsed ? 'w-0' : 'w-full'
-        )}
-      >
-        {link.name}
-      </span>
+      <span className={cn('overflow-hidden', isCollapsed ? 'w-0' : 'w-full')}>{link.name}</span>
     </Link>
   )
 
   const SidebarHeading = ({ title }: { title: string }) => (
-    <AnimatePresence>
+    <>
       {!isCollapsed && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto', transition: { duration: 0.2 } }}
-          exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
-          className="overflow-hidden"
-        >
+        <div className="overflow-hidden">
           <h2 className="px-4 pt-4 pb-2 text-xs font-bold uppercase tracking-wider text-primary">
             {title}
           </h2>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   )
 
   const SidebarContent = () => (
@@ -130,14 +131,7 @@ export default function Sidebar() {
       >
         <Link href="/" onClick={() => setIsLoading(true)} className="flex items-center">
           <div className={cn('relative shrink-0', isCollapsed ? 'h-10 w-10' : 'h-36 w-48')}>
-            <Image
-              fill
-              src={logoSrc}
-              alt="Smuves Logo"
-              className="object-contain"
-              priority
-              key={`${resolvedTheme}-${isCollapsed}`} // Force re-render when theme or collapse state changes
-            />
+            <Image fill src={logoSrc} alt="Smuves Logo" className="object-contain" priority />
           </div>
         </Link>
       </div>
@@ -186,32 +180,20 @@ export default function Sidebar() {
 
   return (
     <>
-      <AnimatePresence>
-        {isMobileOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeMobileSidebar}
-            />
-            <motion.div
-              className="fixed top-0 left-0 z-50 flex h-full w-64 flex-col rounded-r-2xl bg-background shadow-2xl"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            >
-              <SidebarContent />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {isMobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+            onClick={closeMobileSidebar}
+          />
+          <div className="fixed top-0 left-0 z-50 flex h-full w-64 flex-col rounded-r-2xl bg-background shadow-2xl">
+            <SidebarContent />
+          </div>
+        </>
+      )}
       <aside
         className={cn(
           'hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-10 lg:flex lg:flex-col lg:overflow-y-auto custom-scrollbar',
-          'transition-all duration-300 ease-in-out',
           isCollapsed ? 'lg:w-[70px]' : 'lg:w-64'
         )}
       >

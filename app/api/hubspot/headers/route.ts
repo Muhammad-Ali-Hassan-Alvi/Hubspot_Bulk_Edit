@@ -20,21 +20,14 @@ export async function GET(request: NextRequest) {
     // First, get the content type ID if contentType is provided
     let contentTypeId = null
     if (contentType) {
-      // Normalize the content type to match database slug format
-      const normalizedContentType = contentType
-        .toLowerCase()
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/\+/g, '-') // Replace + with hyphens (URL encoding)
-
       const { data: contentTypeData, error: contentTypeError } = await supabase
         .from('content_types')
         .select('id')
-        .eq('slug', normalizedContentType)
+        .eq('slug', contentType)
         .single()
 
       if (contentTypeError) {
         console.error('Failed to fetch content type:', contentTypeError)
-        console.error('Looking for slug:', normalizedContentType)
         return NextResponse.json({ error: 'Invalid content type' }, { status: 400 })
       }
       contentTypeId = contentTypeData.id

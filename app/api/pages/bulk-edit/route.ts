@@ -68,12 +68,7 @@ async function handleStateChange(
 
 export async function POST(request: NextRequest) {
   try {
-    const {
-      userId,
-      selectedItems,
-      updates,
-      contentType: _contentType,
-    } = await request.json()
+    const { userId, selectedItems, updates, contentType: _contentType } = await request.json()
 
     if (!userId || !selectedItems || !updates) {
       return NextResponse.json(
@@ -90,13 +85,10 @@ export async function POST(request: NextRequest) {
 
     // Get HubSpot authentication headers (handles token refresh automatically)
     const hubspotHeaders = await getHubSpotAuthHeaders(user.id)
-    const hubspotToken = hubspotHeaders.Authorization?.replace('Bearer ', '') || ''
+    const hubspotToken = (hubspotHeaders as any).Authorization?.replace('Bearer ', '') || ''
 
     if (!hubspotToken) {
-      return NextResponse.json(
-        { success: false, error: 'HubSpot not connected' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'HubSpot not connected' }, { status: 400 })
     }
 
     // Create Supabase client

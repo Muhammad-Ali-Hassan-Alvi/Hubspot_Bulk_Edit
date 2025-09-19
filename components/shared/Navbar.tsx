@@ -69,7 +69,7 @@ export default function Navbar() {
   )
 
   return (
-    <header className="sticky top-0 z-[60] flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-[50] flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:px-8">
       <Button
         variant="ghost"
         size="icon"
@@ -155,7 +155,7 @@ export default function Navbar() {
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 bg-background">
+          <DropdownMenuContent align="end" className="w-[260px] bg-background">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <Link href="/profile" onClick={handleNavigation}>
@@ -174,7 +174,7 @@ export default function Navbar() {
               <DropdownMenuItem className="flex items-center">
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Change Plan</span>
-                <ComingSoonBadge className="ml-auto text-xs" />
+                <ComingSoonBadge className="ml-auto text-[13px]" />
               </DropdownMenuItem>
             </Link>
             <Link
@@ -186,7 +186,7 @@ export default function Navbar() {
               <DropdownMenuItem>
                 <Gift className="mr-2 h-4 w-4" />
                 <span>Referrals</span>
-                <ComingSoonBadge className="ml-auto text-xs" />
+                <ComingSoonBadge className="ml-auto text-[13px]" />
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />

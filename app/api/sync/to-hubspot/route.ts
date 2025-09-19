@@ -8,16 +8,6 @@ const hubspotFieldMapping: { [key: string]: string } = {
   meta_description: 'metaDescription',
   slug: 'slug',
   body_content: 'body',
-  campaign: 'campaign',
-  domain: 'domain',
-  state: 'state',
-  published: 'published',
-  archived_at: 'archivedAt',
-  author_name: 'authorName',
-  category_id: 'categoryId',
-  content_type: 'contentType',
-  publish_date: 'publishDate',
-  current_state: 'currentState',
 }
 
 export async function POST(request: NextRequest) {
@@ -28,18 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     const { userId, hubspotToken, changes } = await request.json()
 
-    console.log('Sync API received:', {
-      userId,
-      hasHubspotToken: !!hubspotToken,
-      changesCount: changes?.length,
-    })
-
     if (!userId || !hubspotToken || !Array.isArray(changes)) {
-      console.log('Missing required fields:', {
-        userId: !!userId,
-        hubspotToken: !!hubspotToken,
-        changes: Array.isArray(changes),
-      })
       return NextResponse.json(
         { success: false, error: 'Missing required fields.', succeeded, failed }, // Include arrays in error response
         { status: 400 }
@@ -61,23 +40,17 @@ export async function POST(request: NextRequest) {
 
     const pageIdsToUpdate = changes.map(c => c.pageId)
     const { data: pageTypesData, error: pageTypesError } = await supabase
-      .from('page_snapshots')
-      .select('hubspot_page_id, content_type')
+      .from('hubspot_page_backups')
+      .select('hubspot_page_id, page_type')
       .in('hubspot_page_id', pageIdsToUpdate)
-      .eq('user_id', user.id)
 
     if (pageTypesError) throw pageTypesError
 
-    const pageTypeMap = new Map(pageTypesData.map(p => [p.hubspot_page_id, p.content_type]))
-
-    console.log('Page types found:', pageTypesData)
-    console.log('Page type map:', Object.fromEntries(pageTypeMap))
+    const pageTypeMap = new Map(pageTypesData.map(p => [p.hubspot_page_id, p.page_type]))
 
     for (const change of changes) {
       const pageId = change.pageId
       const pageType = pageTypeMap.get(pageId)
-
-      console.log(`Page ${pageId} has type: ${pageType}`)
 
       if (!pageType) {
         failed.push({ pageId, name: change.name, error: 'Page type not found in database backup.' })
@@ -85,10 +58,10 @@ export async function POST(request: NextRequest) {
       }
 
       let updateUrl = ''
-      if (pageType === 'Landing Page' || pageType === 'landing-pages') {
-        updateUrl = `https://api.hubapi.com/cms/v3/pages/landing-pages/${pageId}`
-      } else if (pageType === 'Site Page' || pageType === 'site-pages') {
+      if (pageType === 'Site Page') {
         updateUrl = `https://api.hubapi.com/cms/v3/pages/site-pages/${pageId}`
+      } else if (pageType === 'Landing Page') {
+        updateUrl = `https://api.hubapi.com/cms/v3/pages/landing-pages/${pageId}`
       } else {
         failed.push({
           pageId,
@@ -99,18 +72,12 @@ export async function POST(request: NextRequest) {
       }
 
       const payload: { [key: string]: any } = {}
-      console.log(`Processing change for page ${pageId}:`, change.fields)
-
       for (const [fieldKey, value] of Object.entries(change.fields)) {
         const hubspotKey = hubspotFieldMapping[fieldKey]
-        console.log(`Field ${fieldKey}:`, { value, hubspotKey, hasNew: !!(value as any).new })
-
         if (hubspotKey) {
           payload[hubspotKey] = (value as any).new
         }
       }
-
-      console.log(`Payload for page ${pageId}:`, payload)
 
       if (Object.keys(payload).length === 0) continue
 

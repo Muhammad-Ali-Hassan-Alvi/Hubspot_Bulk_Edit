@@ -4,7 +4,14 @@ import { useState, useEffect, useMemo, forwardRef, useCallback, useRef } from 'r
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
-import { RefreshCw, FileText, Download, CalendarIcon, FileSpreadsheet } from 'lucide-react'
+import {
+  RefreshCw,
+  FileText,
+  Download,
+  CalendarIcon,
+  FileSpreadsheet,
+  AlertTriangle,
+} from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -16,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import 'react-datepicker/dist/react-datepicker.css'
 import { useContentTypes } from '@/hooks/useContentTypes'
+import { useLayout } from '@/app/(protected)/layout-context'
 import CsvExportTab from './components/CsvExportTab'
 import GSheetsExportTab from './components/GSheetsExportTab'
 import Filters from './components/Filters'
@@ -41,6 +49,9 @@ const formatColumnLabel = (key: string) => {
 }
 
 export default function PageManager({ user, userSettings }: PageManagerProps) {
+  // Get connection status from layout context
+  const { connectionStatus, refreshConnectionStatus } = useLayout()
+
   // Fetch dynamic content types
   const { contentTypes } = useContentTypes()
   const [content, setContent] = useState<HubSpotContent[]>([])
@@ -148,12 +159,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         return
       }
 
-      if (!hubspotToken) {
-        setLoading(false)
-        setLoadingMore(false)
-        return
-      }
-
       if (append) {
         setLoadingMore(true)
       } else {
@@ -213,11 +218,21 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             setContent([])
             setTotalItems(0)
           }
-          toast({
-            title: 'Could not load content',
-            description: data.error,
-            variant: 'destructive',
-          })
+
+          // Handle specific HubSpot connection error
+          if (data.error === 'HubSpot not connected') {
+            toast({
+              title: 'HubSpot Not Connected',
+              description: 'Please connect your HubSpot account to access content.',
+              variant: 'destructive',
+            })
+          } else {
+            toast({
+              title: 'Could not load content',
+              description: data.error,
+              variant: 'destructive',
+            })
+          }
         }
       } catch (error) {
         if (!append) {
@@ -258,15 +273,20 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     setHasMoreRecords(false)
   }
 
+  // Refresh connection status when component loads
+  useEffect(() => {
+    refreshConnectionStatus()
+  }, [refreshConnectionStatus])
+
   // Load content when component mounts and when content type changes
   useEffect(() => {
-    if (hubspotToken && contentType) {
+    if (hubspotToken && contentType && connectionStatus.hubspot) {
       loadContent(1, [null], true)
     }
     if (contentTypes.length > 0 && !contentType) {
       setContentType(contentTypes.find(ct => ct.slug === 'landing-pages'))
     }
-  }, [hubspotToken, contentType, contentTypes, loadContent])
+  }, [hubspotToken, contentType, contentTypes, connectionStatus.hubspot, loadContent])
 
   // Update the shared header last-updated span when data loads
   useEffect(() => {
@@ -518,7 +538,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
       return
     }
 
-
     setIsPublishing(true)
     try {
       // Get content type information for each selected item
@@ -537,7 +556,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         updates: updates,
         contentType: contentType?.slug || contentType?.name,
       }
-
 
       const response = await fetch('/api/pages/bulk-edit', {
         method: 'POST',
@@ -791,18 +809,98 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   ))
   DatePickerCustomInput.displayName = 'DatePickerCustomInput'
 
-  if (loading && content.length === 0) {
+  // Show loading state while checking connections
+  if (connectionStatus.loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Loading {currentContentTypeLabel}...</CardTitle>
-          <CardDescription>Fetching the latest data from HubSpot.</CardDescription>
+          <CardTitle>Checking Connections...</CardTitle>
+          <CardDescription>Verifying your HubSpot and Google Sheets connections.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-4 pt-4">
             <div className="h-10 bg-muted/50 rounded w-full"></div>
             <div className="h-20 bg-muted/50 rounded w-full"></div>
             <div className="h-4 bg-muted/50 rounded w-3/4 mt-2"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show connection prompts if HubSpot is not connected
+  if (!connectionStatus.hubspot) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-background">
+          <div>
+            <CardTitle className="text-foreground">Content Manager</CardTitle>
+            <CardDescription className="mt-1">
+              Manage and export your HubSpot content.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="flex flex-col items-center justify-center py-12">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-semibold mb-2">HubSpot Not Connected</p>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+              Connect your HubSpot account to manage and export your content, pages, blog posts, and
+              other assets.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show loading state when connection is loading or when content is being fetched
+  if (connectionStatus.loading || (loading && content.length === 0)) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {connectionStatus.loading
+              ? 'Checking Connections...'
+              : `Loading ${currentContentTypeLabel}...`}
+          </CardTitle>
+          <CardDescription>
+            {connectionStatus.loading
+              ? 'Verifying your HubSpot and Google Sheets connections.'
+              : 'Fetching the latest data from HubSpot.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-4 pt-4">
+            <div className="h-10 bg-muted/50 rounded w-full"></div>
+            <div className="h-20 bg-muted/50 rounded w-full"></div>
+            <div className="h-4 bg-muted/50 rounded w-3/4 mt-2"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show connection prompt if HubSpot is not connected
+  if (!connectionStatus.hubspot) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-background">
+          <div>
+            <CardTitle className="text-foreground">Content Manager</CardTitle>
+            <CardDescription className="mt-1">
+              Manage and export your HubSpot content.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="flex flex-col items-center justify-center py-12">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-semibold mb-2">HubSpot Not Connected</p>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+              Connect your HubSpot account to manage and export your content, pages, blog posts, and
+              other assets.
+            </p>
           </div>
         </CardContent>
       </Card>

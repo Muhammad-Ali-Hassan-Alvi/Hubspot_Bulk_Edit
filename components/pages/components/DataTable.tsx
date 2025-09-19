@@ -380,7 +380,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                 >
                   <thead className="border-b sticky top-0 bg-background z-30">
                     <tr>
-                      <th className="px-4 py-3 sticky left-0 bg-background z-50 w-12 border-r border-border">
+                      <th className="px-4 py-3 sticky left-0 top-0 bg-background z-50 w-12 border-r border-border">
                         <Checkbox
                           checked={
                             filteredContent.length > 0 &&
@@ -398,9 +398,9 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                           onDrop={e => handleDrop(e, key)}
                           className={cn(
                             'px-4 py-3 font-medium whitespace-nowrap relative cursor-pointer select-none transition-all group border-r border-border',
-                            key === 'name'
-                              ? 'sticky left-12 bg-background z-50 shadow-[2px_0_4px_rgba(0,0,0,0.1)]'
-                              : 'z-20',
+                            'sticky top-0 bg-background z-30',
+                            key === 'name' &&
+                              'sticky left-12 z-40 shadow-[2px_0_4px_rgba(0,0,0,0.1)]',
                             draggedColumn === key && 'opacity-50 bg-muted/50',
                             dragOverColumn === key && 'border-l-4 border-primary bg-muted/50'
                           )}
@@ -445,7 +445,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                   <tbody className="divide-y">
                     {sortedContent().map(item => (
                       <tr key={item.id} className="group hover:bg-muted/50">
-                        <td className="px-4 py-2 sticky left-0 z-50 w-12 bg-card border-r border-border">
+                        <td className="px-4 py-2 sticky left-0 z-20 w-12 bg-card border-r border-border">
                           <Checkbox
                             checked={selectedRows.includes(item.id)}
                             onCheckedChange={() => onSelectRow(item.id)}
@@ -457,7 +457,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
                             className={cn(
                               'px-4 py-2 truncate relative border-r border-border',
                               key === 'name'
-                                ? 'sticky left-12 z-40 font-semibold shadow-[2px_0_4px_rgba(0,0,0,0.1)] bg-card'
+                                ? 'sticky left-12 z-20 font-semibold shadow-[2px_0_4px_rgba(0,0,0,0.1)] bg-card'
                                 : 'bg-background z-10 group-hover:bg-muted/50'
                             )}
                             style={{ width: getColumnWidth(key) }}

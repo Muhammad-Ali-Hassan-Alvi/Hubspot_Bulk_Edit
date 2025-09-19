@@ -58,12 +58,26 @@ interface FilterProps {
   content?: HubSpotContent[]
 }
 
-const DatePickerCustomInput = forwardRef(({ value, onClick, placeholder }: any, ref: any) => (
-  <Button variant="outline" onClick={onClick} ref={ref}>
-    <CalendarIcon className="mr-2 h-4 w-4" />
-    {value || placeholder || 'Select Date'}
-  </Button>
-))
+const DatePickerCustomInput = forwardRef(
+  ({ value, onClick, placeholder, onClear }: any, ref: any) => (
+    <div className="relative">
+      <Button variant="outline" onClick={onClick} ref={ref} className="w-full justify-start pr-8">
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {value || placeholder || 'Select Date'}
+      </Button>
+      {value && onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+          aria-label="Clear date"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+)
 DatePickerCustomInput.displayName = 'DatePickerCustomInput'
 
 const DROPDOWN_FIELDS = [
@@ -507,7 +521,7 @@ export default function Filters({
           </SelectContent>
         </Select>
 
-        <div className="relative z-[50]">
+        <div className="relative">
           <DatePicker
             selectsRange
             startDate={dateRange?.[0] || null}

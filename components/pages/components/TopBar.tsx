@@ -130,7 +130,7 @@ const TopBar: React.FC<TopBarProps> = ({
                   <TooltipTrigger asChild>
                     <Button
                       disabled={true}
-                      variant="outline"
+                      // variant="outline"
                       size="sm"
                       className="cursor-not-allowed"
                     >

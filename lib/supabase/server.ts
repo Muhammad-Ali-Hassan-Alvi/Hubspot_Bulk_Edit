@@ -24,31 +24,22 @@ export function createClient() {
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
-          // Only set cookies in Server Actions or Route Handlers
-          if (typeof window === 'undefined') {
-            cookieStore.set({ name, value, ...options })
-          }
-        } catch {
-          // Silently ignore cookie setting errors in non-server contexts
-          // This prevents the console spam you're seeing
+          cookieStore.set({ name, value, ...options })
+        } catch (error) {
+          console.error('Error setting cookie:', error)
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
-          // Only remove cookies in Server Actions or Route Handlers
-          if (typeof window === 'undefined') {
-            cookieStore.set({ name, value: '', ...options })
-          }
-        } catch {
-          // Silently ignore cookie removal errors in non-server contexts
+          cookieStore.set({ name, value: '', ...options })
+        } catch (error) {
+          console.error('Error removing cookie:', error)
         }
       },
     },
     auth: {
       flowType: 'pkce',
       detectSessionInUrl: true,
-      autoRefreshToken: false, // Disable auto refresh to prevent cookie issues
-      persistSession: false, // Disable session persistence on server
     },
   })
 }

@@ -73,7 +73,7 @@ export default function DashboardOverviewPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user, router, updateSettings, reduxUserSettings, userSettings]) // Added userSettings back to dependencies
+  }, [user, router, updateSettings, reduxUserSettings]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manual refresh function for when we need fresh data
   const refreshUserData = useCallback(async () => {
@@ -142,7 +142,7 @@ export default function DashboardOverviewPage() {
     if (user && !userSettings) {
       fetchUserData()
     }
-  }, [user, userSettings, fetchUserData]) // Added fetchUserData back to dependencies
+  }, [user, userSettings]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup effect to reset flags
   useEffect(() => {

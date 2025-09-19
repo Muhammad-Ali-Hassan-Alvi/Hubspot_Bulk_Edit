@@ -7,7 +7,7 @@ interface ComingSoonBadgeProps {
 
 const ComingSoonBadge = ({ className }: ComingSoonBadgeProps) => {
   return (
-    <Badge variant="outline" className={cn('border-foreground', className)}>
+    <Badge variant="outline" className={cn('border-foreground text-nowrap', className)}>
       Coming Soon
     </Badge>
   )

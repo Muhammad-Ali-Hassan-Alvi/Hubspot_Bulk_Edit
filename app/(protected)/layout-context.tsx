@@ -1,7 +1,7 @@
 // app/dashboard/layout-context.tsx
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/useUserSettings'
 import { useAppDispatch } from '@/lib/store/hooks'
@@ -27,6 +27,7 @@ interface LayoutContextType {
     google: boolean
     loading: boolean
   }
+  refreshConnectionStatus: () => Promise<void>
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined)
@@ -41,6 +42,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     google: false,
     loading: true,
   })
+  const [hasFetchedSettings, setHasFetchedSettings] = useState(false)
+  const [lastRefreshTime, setLastRefreshTime] = useState(0)
 
   // Initialize Redux user state from Supabase auth
   useEffect(() => {
@@ -74,9 +77,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     if (!user) {
       initializeUser()
     }
-  }, [user, dispatch])
+  }, [dispatch]) // Removed user from dependencies to prevent infinite loop
 
   useEffect(() => {
+    // Only fetch settings once
+    if (hasFetchedSettings) return
+
     async function fetchSettings() {
       try {
         const response = await fetch('/api/user/settings')
@@ -95,14 +101,46 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         } else {
           setConnectionStatus({ hubspot: false, google: false, loading: false })
         }
+        setHasFetchedSettings(true)
       } catch (error) {
         console.error('Error fetching connection status:', error)
         setConnectionStatus({ hubspot: false, google: false, loading: false })
+        setHasFetchedSettings(true)
       }
     }
 
     fetchSettings()
-  }, [])
+  }, [hasFetchedSettings])
+
+  const refreshConnectionStatus = useCallback(async () => {
+    const now = Date.now()
+    // Prevent too frequent refreshes (max once per 2 seconds)
+    if (now - lastRefreshTime < 2000) {
+      return
+    }
+
+    setLastRefreshTime(now)
+    setConnectionStatus(prev => ({ ...prev, loading: true }))
+    try {
+      const response = await fetch('/api/user/settings')
+      if (!response.ok) throw new Error('Failed to fetch settings')
+
+      const data: { success: boolean; settings?: UserSettings } = await response.json()
+
+      if (data.success && data.settings) {
+        setConnectionStatus({
+          hubspot: !!(data.settings.hubspot_token_encrypted || data.settings.hubspot_access_token),
+          google: !!data.settings.google_refresh_token,
+          loading: false,
+        })
+      } else {
+        setConnectionStatus({ hubspot: false, google: false, loading: false })
+      }
+    } catch (error) {
+      console.error('Error refreshing connection status:', error)
+      setConnectionStatus({ hubspot: false, google: false, loading: false })
+    }
+  }, [lastRefreshTime])
 
   const toggleSidebar = () => setSidebarCollapsed(prev => !prev)
   const toggleMobileSidebar = () => setMobileOpen(prev => !prev) // CORRECTED NAME
@@ -116,6 +154,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     toggleMobileSidebar,
     closeMobileSidebar,
     connectionStatus,
+    refreshConnectionStatus,
   }
 
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>

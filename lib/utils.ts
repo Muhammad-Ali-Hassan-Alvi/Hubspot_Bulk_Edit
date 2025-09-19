@@ -69,29 +69,3 @@ export const getRequestOrigin = (request: NextRequest): string => {
   const origin = url.origin // dynamic origin (e.g., https://yourdomain.vercel.app)
   return origin
 }
-
-// Content type normalization utilities
-export const normalizeContentType = {
-  // Convert to lowercase with underscores (for database/filename use)
-  toSnakeCase: (contentType: string): string => {
-    return contentType.replace(/-/g, '_').replace(/\s+/g, '_').toLowerCase()
-  },
-
-  // Convert to lowercase with spaces (for display use)
-  toDisplayFormat: (contentType: string): string => {
-    return contentType.replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase()
-  },
-
-  // Convert to lowercase with hyphens (for URL/API use)
-  toKebabCase: (contentType: string): string => {
-    return contentType.replace(/_/g, '-').replace(/\s+/g, '-').toLowerCase()
-  },
-
-  // Normalize for comparison (handles both formats)
-  forComparison: (contentType: string): string => {
-    return contentType
-      .replace(/[-_\s]+/g, ' ')
-      .toLowerCase()
-      .trim()
-  },
-}

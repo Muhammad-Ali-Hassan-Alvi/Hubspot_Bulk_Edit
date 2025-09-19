@@ -24,12 +24,7 @@ import { useToast } from '@/hooks/use-toast'
 import { X, PenSquare, RefreshCw, CalendarIcon, Loader2 } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import ConfirmChangesModal from '@/components/modals/ConfirmChangesModal'
-import UploadingModal from '@/components/modals/UploadingModal'
-import UploadResultsModal from '@/components/modals/UploadResultsModal'
-import { useUploadFlow } from '@/hooks/useUploadFlow'
 import { ContentTypeT } from '@/lib/content-types'
-import { EDITABLE_FIELDS } from '@/lib/constants'
 
 const DatePickerCustomInput = forwardRef(({ value, onClick }: any, ref: any) => (
   <Button variant="outline" onClick={onClick} ref={ref} className="w-full justify-start">
@@ -71,10 +66,15 @@ export default function BulkEditHeader({
   allContent,
 }: BulkEditHeaderProps) {
   const [updates, setUpdates] = useState<{ [key: string]: any }>({})
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showProgress, setShowProgress] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [currentStatus, setCurrentStatus] = useState('')
+  const [uploadResults, setUploadResults] = useState({ success: 0, failed: 0 })
   const [dynamicFields, setDynamicFields] = useState<EditableField[]>([])
   const [loadingFields, setLoadingFields] = useState(false)
   const { toast } = useToast()
-  const uploadFlow = useUploadFlow()
 
   // Fetch headers dynamically from database
   const fetchHeaders = async (contentType: string) => {
@@ -99,18 +99,18 @@ export default function BulkEditHeader({
           description: 'Failed to load editable fields. Using fallback fields.',
           variant: 'destructive',
         })
-        // Fallback to constants if API fails
-        setDynamicFields([...EDITABLE_FIELDS])
+        // No fallback - keep dynamic fields empty if API fails
+        setDynamicFields([])
       }
     } catch (error) {
       console.error('Error fetching headers:', error)
       toast({
         title: 'Error Loading Fields',
-        description: 'Failed to load editable fields. Using fallback fields.',
+        description: 'Failed to load editable fields.',
         variant: 'destructive',
       })
-      // Fallback to constants if API fails
-      setDynamicFields([...EDITABLE_FIELDS])
+      // No fallback - keep dynamic fields empty if API fails
+      setDynamicFields([])
     } finally {
       setLoadingFields(false)
     }
@@ -122,11 +122,6 @@ export default function BulkEditHeader({
       fetchHeaders(_contentType.slug)
     }
   }, [_contentType])
-
-  // Use dynamic fields from database or fallback to constants
-  const fieldsToUse = useMemo(() => {
-    return dynamicFields.length > 0 ? dynamicFields : EDITABLE_FIELDS
-  }, [dynamicFields])
   // Fetch all dropdown options upfront
   const [hubspotDropdownOptions, setHubspotDropdownOptions] = useState<{ [key: string]: string[] }>(
     {}
@@ -139,7 +134,7 @@ export default function BulkEditHeader({
     if (_contentType && _contentType.slug !== loadedContentTypeRef.current) {
       setHubspotDropdownOptions({})
       loadedContentTypeRef.current = _contentType.slug
-      
+
       setLoadingAllDropdownOptions(true)
       fetch('/api/hubspot/dropdown-options', {
         method: 'POST',
@@ -281,6 +276,11 @@ export default function BulkEditHeader({
     return combinedOptions
   }, [hubspotDropdownOptions, allContent])
 
+  // Use dynamic fields from database only
+  const fieldsToUse = useMemo(() => {
+    return dynamicFields
+  }, [dynamicFields])
+
   useEffect(() => {
     setUpdates({})
   }, [fieldsToUse])
@@ -312,10 +312,10 @@ export default function BulkEditHeader({
       return
     }
 
-    uploadFlow.startConfirmation()
+    setShowConfirmation(true)
   }
 
-  const handleConfirmChanges = async () => {
+  const handleConfirmChanges = () => {
     const finalUpdates = Object.entries(updates).reduce(
       (acc, [key, value]) => {
         if (value !== '' && value !== null && value !== undefined) {
@@ -326,18 +326,44 @@ export default function BulkEditHeader({
       {} as { [key: string]: any }
     )
 
-    await uploadFlow.confirmChanges(async () => {
-      // Simulate the actual upload process
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      onConfirm(finalUpdates)
-      uploadFlow.completeUpload(selectedRowCount, 0)
-    })
+    setShowConfirmation(false)
+    setShowProgress(true)
+    setProgress(0)
+    setCurrentStatus('Initializing upload...')
+
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(progressInterval)
+          setCurrentStatus('Upload completed!')
+          setTimeout(() => {
+            setShowProgress(false)
+            onConfirm(finalUpdates)
+            setUploadResults({ success: selectedRowCount, failed: 0 })
+            setShowResults(true)
+          }, 1000)
+          return 100
+        }
+
+        const newProgress = prev + Math.random() * 15 + 5
+        if (newProgress > 30 && prev <= 30) {
+          setCurrentStatus('Processing items...')
+        } else if (newProgress > 60 && prev <= 60) {
+          setCurrentStatus('Applying updates...')
+        } else if (newProgress > 90 && prev <= 90) {
+          setCurrentStatus('Finalizing changes...')
+        }
+
+        return Math.min(newProgress, 100)
+      })
+    }, 200)
   }
 
   const renderField = (field: EditableField) => {
     const dynamicOptions = fieldOptions[field.key]
     const hasOptions = dynamicOptions && dynamicOptions.length > 0
-      const isLoading = loadingAllDropdownOptions
+    const isLoading = loadingAllDropdownOptions
 
     // Fields that should always be dropdowns
     const alwaysDropdownFields = [
@@ -403,7 +429,8 @@ export default function BulkEditHeader({
                 dynamicOptions.map(option => {
                   // Special handling for archivedInDashboard to show Yes/No but send true/false
                   if (field.key === 'archivedInDashboard') {
-                    const displayValue = option === 'true' ? 'Yes' : option === 'false' ? 'No' : option
+                    const displayValue =
+                      option === 'true' ? 'Yes' : option === 'false' ? 'No' : option
                     return (
                       <SelectItem key={option} value={option}>
                         {displayValue}
@@ -599,10 +626,10 @@ export default function BulkEditHeader({
                 onClick={fetchHubspotDropdownOptions} 
                 size="sm" 
                 variant="outline"
-                disabled={loadingAllDropdownOptions}
+                disabled={loadingDropdownOptions}
                 title="Refresh dropdown options from HubSpot"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loadingAllDropdownOptions ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingDropdownOptions ? 'animate-spin' : ''}`} />
                 Refresh Options
               </Button> */}
               <Button onClick={handleConfirm} size="sm" disabled={isPublishing}>
@@ -619,7 +646,7 @@ export default function BulkEditHeader({
             </div>
           </div>
 
-          {/* {loadingAllDropdownOptions && (
+          {/* {loadingDropdownOptions && (
             <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               Loading dropdown options from HubSpot...
@@ -655,17 +682,7 @@ export default function BulkEditHeader({
       </Card>
 
       {/* Dialogs... */}
-      <ConfirmChangesModal
-        isOpen={uploadFlow.showConfirmation}
-        onClose={() => uploadFlow.reset()}
-        onConfirm={handleConfirmChanges}
-        changes={updates}
-        selectedCount={selectedRowCount}
-        isProcessing={uploadFlow.isProcessing}
-      />
-
-      {/* Old modal - to be removed */}
-      <Dialog open={false} onOpenChange={() => {}}>
+      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Confirm Changes</DialogTitle>
@@ -692,7 +709,7 @@ export default function BulkEditHeader({
                   {Object.entries(updates).map(([key, value]) => {
                     if (value === '' || value === null || value === undefined) return null
 
-                    const field = fieldsToUse.find((f: EditableField) => f.key === key)
+                    const field = fieldsToUse.find(f => f.key === key)
                     const fieldLabel = field?.label || key
 
                     return (
@@ -726,7 +743,7 @@ export default function BulkEditHeader({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => uploadFlow.reset()}>
+            <Button variant="outline" onClick={() => setShowConfirmation(false)}>
               Cancel
             </Button>
             <Button
@@ -747,15 +764,7 @@ export default function BulkEditHeader({
         </DialogContent>
       </Dialog>
 
-      <UploadingModal
-        isOpen={uploadFlow.showProgress}
-        progress={uploadFlow.progress}
-        currentStatus={uploadFlow.currentStatus}
-        selectedCount={selectedRowCount}
-      />
-
-      {/* Old modal - to be removed */}
-      <Dialog open={false} onOpenChange={() => {}}>
+      <Dialog open={showProgress} onOpenChange={() => {}}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Uploading to HubSpot</DialogTitle>
@@ -775,14 +784,12 @@ export default function BulkEditHeader({
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Progress</span>
-                  <span className="text-sm text-muted-foreground">
-                    {Math.round(uploadFlow.progress)}%
-                  </span>
+                  <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-teal-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadFlow.progress}%` }}
+                    style={{ width: `${progress}%` }}
                   ></div>
                 </div>
               </div>
@@ -791,29 +798,14 @@ export default function BulkEditHeader({
                 <p className="text-sm text-muted-foreground">
                   Processing {selectedRowCount} {selectedRowCount === 1 ? 'item' : 'items'}...
                 </p>
-                <p className="text-sm text-muted-foreground">{uploadFlow.currentStatus}</p>
+                <p className="text-sm text-muted-foreground">{currentStatus}</p>
               </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <UploadResultsModal
-        isOpen={uploadFlow.showResults}
-        onClose={() => {
-          uploadFlow.closeResults()
-          uploadFlow.reset()
-          onClearSelection()
-          refreshCurrentPage()
-        }}
-        onViewLogs={() => window.open('/reports-and-logs/logs', '_blank')}
-        successCount={uploadFlow.uploadResults.success}
-        failedCount={uploadFlow.uploadResults.failed}
-        showViewLogs={true}
-      />
-
-      {/* Old modal - to be removed */}
-      <Dialog open={false}>
+      <Dialog open={showResults}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Results</DialogTitle>
@@ -847,15 +839,11 @@ export default function BulkEditHeader({
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {uploadFlow.uploadResults.success}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{uploadResults.success}</div>
                   <div className="text-sm text-green-600">Items Successfully Updated</div>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {uploadFlow.uploadResults.failed}
-                  </div>
+                  <div className="text-2xl font-bold text-red-600">{uploadResults.failed}</div>
                   <div className="text-sm text-red-600">Items Failed to Update</div>
                 </div>
               </div>
@@ -881,8 +869,7 @@ export default function BulkEditHeader({
                 </Button>
                 <Button
                   onClick={() => {
-                    uploadFlow.closeResults()
-                    uploadFlow.reset()
+                    setShowResults(false)
                     // Clear selection after user closes the modal
                     onClearSelection()
                     refreshCurrentPage()

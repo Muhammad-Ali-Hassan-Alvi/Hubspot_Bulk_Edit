@@ -11,7 +11,6 @@ export interface ExportLogData {
   tabName?: string
   itemsCount?: number
   columnsExported?: string[]
-  filename?: string
   metadata?: Record<string, any>
   userId?: string
 }

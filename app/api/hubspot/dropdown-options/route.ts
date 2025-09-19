@@ -3,75 +3,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
+import { getLanguageOptions } from '@/lib/language-constants'
 
 const dropdownCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_DURATION = 5 * 60 * 1000
 
-// Language cache to avoid repeated API calls
-const languageCache = new Map<string, { data: string[]; timestamp: number }>()
-const LANGUAGE_CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours
-
-async function fetchLanguagesFromAPI(): Promise<string[]> {
-  const cacheKey = 'languages'
-  const now = Date.now()
-
-  // Check cache first
-  const cached = languageCache.get(cacheKey)
-  if (cached && now - cached.timestamp < LANGUAGE_CACHE_DURATION) {
-    return cached.data
-  }
-
-  try {
-    const response = await fetch('https://restcountries.com/v3.1/all?fields=languages')
-    const countries = await response.json()
-
-    const languageMap = new Map<string, string>() // code -> name mapping
-
-    countries.forEach((country: any) => {
-      if (country.languages) {
-        Object.entries(country.languages).forEach(([code, name]: [string, any]) => {
-          if (typeof name === 'string' && typeof code === 'string') {
-            // Store both code and name, prefer longer/more descriptive names
-            const existing = languageMap.get(code)
-            if (!existing || name.length > existing.length) {
-              languageMap.set(code, name)
-            }
-          }
-        })
-      }
-    })
-
-    // Convert to array with format "Name - code"
-    const languages = Array.from(languageMap.entries())
-      .map(([code, name]) => `${name} - ${code}`)
-      .sort()
-
-    // Cache the result
-    languageCache.set(cacheKey, { data: languages, timestamp: now })
-
-    return languages
-  } catch (error) {
-    console.error('Failed to fetch languages from API:', error)
-    // Return fallback with proper format
-    const fallback = [
-      'English - en',
-      'Spanish - es',
-      'French - fr',
-      'German - de',
-      'Italian - it',
-      'Portuguese - pt',
-      'Japanese - ja',
-      'Chinese - zh',
-      'Korean - ko',
-      'Arabic - ar',
-      'Hindi - hi',
-      'Russian - ru',
-    ]
-
-    // Cache fallback too
-    languageCache.set(cacheKey, { data: fallback, timestamp: now })
-    return fallback
-  }
+// Get languages from utility instead of external API
+function getLanguages(): string[] {
+  return getLanguageOptions()
 }
 
 // Helper function to fetch all paginated results from a HubSpot endpoint
@@ -178,13 +117,13 @@ export async function POST(request: NextRequest) {
       } else if (specificField === 'redirectStyle' || specificField === 'precedence') {
         fetchPromises.push(fetchAllFromEndpoint(configEndpoints.redirects, headers))
       } else if (specificField === 'language') {
-        // Language is cached, no need to fetch from HubSpot
-        const languages = await fetchLanguagesFromAPI()
+        // Get languages from utility instead of external API
+        const languages = getLanguages()
         return NextResponse.json({
           success: true,
           dropdownOptions: { language: languages },
-          cached: true,
-          message: 'Language options loaded from cache',
+          cached: false,
+          message: 'Language options loaded from utility',
         })
       }
 
@@ -332,7 +271,7 @@ export async function POST(request: NextRequest) {
 
     dropdownOptions['state'] = ['DRAFT', 'PUBLISHED', 'SCHEDULED', 'ARCHIVED']
 
-    const languages = await fetchLanguagesFromAPI()
+    const languages = getLanguages()
     dropdownOptions['language'] = languages
 
     // Update cache with new data
