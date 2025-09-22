@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { Crown, Check, Zap, Shield, Clock, BarChart3, RefreshCw, Calendar } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface PremiumFeaturesProps {
   user: User
@@ -140,7 +141,7 @@ export default function PremiumFeatures({ user, userSettings, onUpgrade }: Premi
             {userSettings.is_premium
               ? `Your premium plan ${
                   userSettings.premium_expires_at
-                    ? `expires on ${new Date(userSettings.premium_expires_at).toLocaleDateString()}`
+                    ? `expires on ${(<DateDisplay date={userSettings.premium_expires_at} format="short" />)}`
                     : 'is active'
                 }`
               : 'Upgrade to unlock advanced features and automation'}

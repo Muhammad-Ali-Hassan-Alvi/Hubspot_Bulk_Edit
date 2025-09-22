@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RefreshCw, TestTube, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface SyncHistoryProps {
   userId: string
@@ -239,7 +240,7 @@ export default function SyncHistory({ userId, refreshKey }: SyncHistoryProps) {
                 {sessions.map(session => (
                   <TableRow key={session.id}>
                     <TableCell className="whitespace-nowrap">
-                      {new Date(session.timestamp).toLocaleString()}
+                      <DateDisplay date={session.timestamp} format="time" showTime={true} />
                     </TableCell>
                     <TableCell className="font-medium whitespace-nowrap">
                       {session.tab_name}

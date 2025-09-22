@@ -1,16 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { refreshHeaders } from '@/lib/headers-configuration'
+import { refreshHeaders, cacheTimestamp, CACHE_TTL_MS } from '@/lib/headers-configuration'
 
 export async function GET(request: NextRequest) {
   try {
     // 1. Fetch headers from the refresh-headers endpoint
     const resultOrResponse = await refreshHeaders(request)
-    if (resultOrResponse instanceof NextResponse) {
-      return resultOrResponse
-    }
+    console.log('resultOrResponse', resultOrResponse)
 
-    const hubspotHeaders = resultOrResponse.headers || []
+    let hubspotHeaders: any[] = []
+
+    if (resultOrResponse instanceof NextResponse) {
+      // Handle cached response - extract data and continue with comparison logic
+      try {
+        const cachedData = await resultOrResponse.json()
+        hubspotHeaders = Array.isArray(cachedData?.headers) ? cachedData.headers : []
+        console.log('Using cached headers:', hubspotHeaders.length, 'headers found')
+      } catch (error) {
+        console.error('Failed to parse cached response:', error)
+        return NextResponse.json(
+          {
+            success: false,
+            totalHubSpotHeaders: 0,
+            totalHubSpotUniqueHeaders: 0,
+            totalDatabaseHeaders: 0,
+            totalDatabaseCompositeHeaders: 0,
+            missingHeaders: [],
+            isUpToDate: false,
+            error: 'Failed to parse cached header data',
+          },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Handle fresh data
+      hubspotHeaders = Array.isArray(resultOrResponse?.headers) ? resultOrResponse.headers : []
+      console.log('Using fresh headers:', hubspotHeaders.length, 'headers found')
+    }
 
     // 2. Fetch existing headers from database with their configurations
     const supabase = await createClient()
@@ -63,30 +89,44 @@ export async function GET(request: NextRequest) {
     const totalHubSpotUniqueHeaders = hubspotUniqueNames.size
 
     // 6. Return comparison result with enhanced information
+    const isUsingCachedData = resultOrResponse instanceof NextResponse
+
     return NextResponse.json({
       success: true,
-      totalHubSpotHeaders: hubspotHeaders.length, // Total including data type variants
+      totalHubSpotHeaders: (hubspotHeaders || []).length, // Total including data type variants
       totalHubSpotUniqueHeaders: totalHubSpotUniqueHeaders, // Unique names only
       totalDatabaseHeaders: dbUniqueNames.size, // Unique names in database
       totalDatabaseCompositeHeaders: dbCompositeKeys.size, // Total including data type variants
-      missingHeaders: missingHeaders.map((header: any) => ({
+      missingHeaders: (missingHeaders || []).map((header: any) => ({
         header: header.header,
         headerType: header.headerType,
         presence: header.presence,
         compositeKey: `${header.header}||${header.headerType || ''}`,
       })),
-      isUpToDate: missingHeaders.length === 0,
+      isUpToDate: (missingHeaders || []).length === 0,
+      isUsingCachedData: isUsingCachedData,
+      cacheInfo: isUsingCachedData
+        ? 'Using cached HubSpot data to prevent API rate limiting'
+        : 'Fresh data from HubSpot API',
+      cacheExpiresAt: isUsingCachedData ? cacheTimestamp + CACHE_TTL_MS : null,
       explanation: {
         hubspotIncludesDataTypeVariants: true,
         databaseStoresUniqueNames: true,
         comparisonMethod: 'composite_key_with_data_type',
-        missingHeadersAreDataTypeVariants: missingHeaders.length > 0,
+        missingHeadersAreDataTypeVariants: (missingHeaders || []).length > 0,
       },
     })
   } catch (error) {
     console.error('Error comparing headers:', error)
     return NextResponse.json(
       {
+        success: false,
+        totalHubSpotHeaders: 0,
+        totalHubSpotUniqueHeaders: 0,
+        totalDatabaseHeaders: 0,
+        totalDatabaseCompositeHeaders: 0,
+        missingHeaders: [],
+        isUpToDate: false,
         error: `Failed to compare headers: ${error instanceof Error ? error.message : 'Unknown error'}`,
       },
       { status: 500 }

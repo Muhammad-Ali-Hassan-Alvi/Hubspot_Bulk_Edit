@@ -24,7 +24,6 @@ import {
 import 'react-datepicker/dist/react-datepicker.css'
 import { useContentTypes } from '@/hooks/useContentTypes'
 import { useLayout } from '@/app/(protected)/layout-context'
-import { DateDisplay } from '@/components/shared/DateDisplay'
 import CsvExportTab from './components/CsvExportTab'
 import GSheetsExportTab from './components/GSheetsExportTab'
 import Filters from './components/Filters'

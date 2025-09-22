@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Clock, Play, Settings } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface AutoBackupManagerProps {
   userId: string
@@ -151,7 +152,7 @@ export default function AutoBackupManager({
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Last Backup:</span>
               <span className="text-sm text-muted-foreground">
-                {new Date(lastBackup).toLocaleString()}
+                <DateDisplay date={lastBackup} format="time" showTime={true} />
               </span>
             </div>
           )}

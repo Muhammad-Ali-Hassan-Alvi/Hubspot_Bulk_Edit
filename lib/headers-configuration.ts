@@ -20,22 +20,71 @@ export const types = [
 
 // --- Helpers ---
 export async function fetchFirstObject(urls: string[], headers: Record<string, string>) {
-  for (let i = 0; i < urls.length; i++) {
-    try {
-      const res = await fetch(urls[i], { headers })
+  let lastError: Error | null = null
 
-      if (res.status === 200) {
-        const js = await res.json()
-        if (Array.isArray(js.results) && js.results.length) return js.results[0]
-        if (js && !js.results) return js // single object case
-      } else if (res.status === 429) {
-        await new Promise(r => setTimeout(r, HEADERS_BACKOFF_MS))
-        i-- // retry
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i]
+    let retryCount = 0
+    const maxRetries = 3
+
+    while (retryCount <= maxRetries) {
+      let timeoutId: NodeJS.Timeout | undefined
+
+      try {
+        console.log(`Fetching from: ${url} (attempt ${retryCount + 1}/${maxRetries + 1})`)
+
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController()
+        timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+
+        const res = await fetch(url, {
+          headers,
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (res.status === 200) {
+          const js = await res.json()
+          if (Array.isArray(js.results) && js.results.length) {
+            console.log(`Successfully fetched data from: ${url}`)
+            return js.results[0]
+          }
+          if (js && !js.results) {
+            console.log(`Successfully fetched single object from: ${url}`)
+            return js // single object case
+          }
+        } else if (res.status === 429) {
+          const waitTime = HEADERS_BACKOFF_MS * (retryCount + 1) // Exponential backoff
+          console.log(`Rate limited (429) on ${url}, waiting ${waitTime}ms before retry`)
+          await new Promise(r => setTimeout(r, waitTime))
+          retryCount++
+          continue
+        } else {
+          console.error(`HTTP ${res.status} error from ${url}: ${res.statusText}`)
+          lastError = new Error(`HTTP ${res.status}: ${res.statusText}`)
+        }
+
+        break // Exit retry loop if we get here (success or non-retryable error)
+      } catch (error) {
+        if (timeoutId) clearTimeout(timeoutId)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        console.error(`Error fetching from ${url} (attempt ${retryCount + 1}): ${errorMessage}`)
+        lastError = error instanceof Error ? error : new Error(errorMessage)
+
+        if (retryCount < maxRetries) {
+          const waitTime = HEADERS_BACKOFF_MS * (retryCount + 1)
+          console.log(`Retrying in ${waitTime}ms...`)
+          await new Promise(r => setTimeout(r, waitTime))
+          retryCount++
+        } else {
+          break // Max retries reached, try next URL
+        }
       }
-    } catch {
-      // try next
     }
   }
+
+  console.error('All URLs failed to fetch data. Last error:', lastError?.message)
   return null
 }
 
@@ -80,8 +129,13 @@ export async function refreshHeaders(request: Request) {
   }
 
   if (!samples.length) {
+    console.error('Failed to fetch any samples from HubSpot API endpoints')
     return NextResponse.json(
-      { error: 'Could not fetch any headers (check token/scopes).' },
+      {
+        error:
+          'Could not fetch any headers from HubSpot API. This may be due to network issues, rate limiting, or authentication problems. Please try again in a few minutes.',
+        details: 'No samples could be retrieved from any HubSpot endpoint',
+      },
       { status: 500 }
     )
   }

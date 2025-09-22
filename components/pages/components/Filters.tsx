@@ -16,7 +16,6 @@ import 'react-datepicker/dist/react-datepicker.css'
 import React from 'react'
 import { ContentTypeT } from '@/lib/content-types'
 import { getHeaderInfo } from '@/lib/utils'
-import { shouldShowStateFilter, shouldShowPublishDateFilter } from '@/lib/content-type-fields'
 
 // ... (interfaces and other functions remain the same) ...
 
@@ -362,26 +361,16 @@ export default function Filters({
   }
 
   const handleApplyFilters = () => {
-    // Clear all filters first
+    // This logic stays the same, but now it's only callable when the button is enabled.
     setSearchTerm('')
     setSlugSearchTerm('')
     setHtmlTitleSearchTerm('')
     setLanguageFilter('all')
-    
-    // Only clear state filter if it's available for this content type
-    if (contentType && shouldShowStateFilter(contentType.slug)) {
-      setStateFilter('all')
-    }
-    
-    // Only clear publish date filter if it's available for this content type
-    if (contentType && shouldShowPublishDateFilter(contentType.slug)) {
-      setPublishDateFilter('')
-    }
-    
+    setStateFilter('all')
+    setPublishDateFilter('')
     setCreatedAtFilter('')
     setDynamicFilters({})
 
-    // Apply the selected filter
     switch (selectedFilterField) {
       case 'name':
         setSearchTerm(tempFilterValue)
@@ -396,16 +385,10 @@ export default function Filters({
         setLanguageFilter(tempFilterValue.trim() === '' ? 'all' : tempFilterValue)
         break
       case 'state':
-        // Only apply state filter if it's available for this content type
-        if (contentType && shouldShowStateFilter(contentType.slug)) {
-          setStateFilter(tempFilterValue === 'all' ? 'all' : tempFilterValue)
-        }
+        setStateFilter(tempFilterValue === 'all' ? 'all' : tempFilterValue)
         break
       case 'publishDate':
-        // Only apply publish date filter if it's available for this content type
-        if (contentType && shouldShowPublishDateFilter(contentType.slug)) {
-          setPublishDateFilter(tempFilterValue)
-        }
+        setPublishDateFilter(tempFilterValue)
         break
       case 'createdAt':
         setCreatedAtFilter(tempFilterValue)
@@ -444,20 +427,11 @@ export default function Filters({
     setSlugSearchTerm('')
     setHtmlTitleSearchTerm('')
     setLanguageFilter('all')
-    
-    // Only clear state filter if it's available for this content type
-    if (contentType && shouldShowStateFilter(contentType.slug)) {
-      setStateFilter('all')
-    }
-    
-    // Only clear publish date filter if it's available for this content type
-    if (contentType && shouldShowPublishDateFilter(contentType.slug)) {
-      setPublishDateFilter('')
-      if (setDateRange) setDateRange([null, null])
-    }
-    
+    setStateFilter('all')
+    setPublishDateFilter('')
     setCreatedAtFilter('')
     setDynamicFilters({})
+    if (setDateRange) setDateRange([null, null])
   }
 
   const getPlaceholderText = (fieldName: string) => {
@@ -533,41 +507,36 @@ export default function Filters({
           </div>
         )}
 
-        {/* State filter - only show if available for content type */}
-        {contentType && shouldShowStateFilter(contentType.slug) && (
-          <Select value={stateFilter} onValueChange={value => setStateFilter(value)}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="State" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All States</SelectItem>
-              <SelectItem value="PUBLISHED">Published</SelectItem>
-              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-              <SelectItem value="PUBLISHED_OR_SCHEDULED">Published or Scheduled</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+        {/* ... (Other filters like State and DatePicker remain the same) ... */}
+        <Select value={stateFilter} onValueChange={value => setStateFilter(value)}>
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="State" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All States</SelectItem>
+            <SelectItem value="PUBLISHED">Published</SelectItem>
+            <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+            <SelectItem value="PUBLISHED_OR_SCHEDULED">Published or Scheduled</SelectItem>
+            <SelectItem value="DRAFT">Draft</SelectItem>
+          </SelectContent>
+        </Select>
 
-        {/* Publish Date filter - only show if available for content type */}
-        {contentType && shouldShowPublishDateFilter(contentType.slug) && (
-          <div className="relative">
-            <DatePicker
-              selectsRange
-              startDate={dateRange?.[0] || null}
-              endDate={dateRange?.[1] || null}
-              onChange={(update: [Date | null, Date | null]) => {
-                if (setDateRange) setDateRange(update)
-              }}
-              isClearable
-              placeholderText="Select Publish Date"
-              customInput={<DatePickerCustomInput placeholder="Select Publish Date" />}
-              className="w-[200px]"
-              popperClassName="z-[50]"
-              popperPlacement="bottom-start"
-            />
-          </div>
-        )}
+        <div className="relative">
+          <DatePicker
+            selectsRange
+            startDate={dateRange?.[0] || null}
+            endDate={dateRange?.[1] || null}
+            onChange={(update: [Date | null, Date | null]) => {
+              if (setDateRange) setDateRange(update)
+            }}
+            isClearable
+            placeholderText="Select Publish Date"
+            customInput={<DatePickerCustomInput placeholder="Select Publish Date" />}
+            className="w-[200px]"
+            popperClassName="z-[50]"
+            popperPlacement="bottom-start"
+          />
+        </div>
 
         <div className="flex gap-2">
           {/* <<< CHANGE 2: UPDATE THE APPLY BUTTON LOGIC */}

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import {
   Select,
   SelectContent,
@@ -167,13 +168,7 @@ export default function BackupManager({
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    return <DateDisplay date={dateString} format="short" />
   }
 
   const getStatusBadge = (status: string) => {
@@ -303,7 +298,7 @@ export default function BackupManager({
                   {backupSessions.map(session => (
                     <TableRow key={session.id}>
                       <TableCell className="font-medium">
-                        {new Date(session.backup_date).toLocaleDateString()}
+                        <DateDisplay date={session.backup_date} format="short" />
                       </TableCell>
                       <TableCell>{getStatusBadge(session.status)}</TableCell>
                       <TableCell>{session.pages_backed_up || 0}</TableCell>

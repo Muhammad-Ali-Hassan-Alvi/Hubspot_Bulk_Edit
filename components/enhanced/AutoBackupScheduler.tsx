@@ -17,6 +17,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { Clock, Calendar, Settings, Play, Crown, AlertTriangle, CheckCircle } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { useUserSettings } from '@/hooks/useUserSettings'
 
 interface AutoBackupSchedulerProps {
@@ -204,15 +205,9 @@ export default function AutoBackupScheduler({
     setTesting(false)
   }
 
-  const formatDateTime = (dateString: string) =>
-    new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    })
+  const formatDateTime = (dateString: string) => {
+    return <DateDisplay date={dateString} format="time" showTime={true} />
+  }
   const getFrequencyDescription = () => {
     switch (scheduleSettings.frequency) {
       case 'daily':

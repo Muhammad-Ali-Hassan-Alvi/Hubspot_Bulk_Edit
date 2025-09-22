@@ -42,7 +42,6 @@ export default function ScrollToTopButton({
   useEffect(() => {
     const toggleVisibility = () => {
       const scrolled = window.pageYOffset || document.documentElement.scrollTop
-      console.log('Current scroll position:', scrolled, 'Threshold:', threshold) // Debug log
 
       if (scrolled > threshold) {
         setIsVisible(true)

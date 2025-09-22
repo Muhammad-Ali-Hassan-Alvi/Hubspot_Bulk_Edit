@@ -126,7 +126,7 @@ export default function AuditLogs({ user, onExport }: AuditLogsProps) {
   const exportLogs = async (format: string) => {
     try {
       const dataToExport = filteredLogs.map(log => ({
-        Date: new Date(log.created_at).toLocaleString(),
+        Date: <DateDisplay date={log.created_at} format="time" showTime={true} />,
         Action: log.action_type,
         Resource: log.resource_type,
         // 'Resource ID': log.resource_id || '',

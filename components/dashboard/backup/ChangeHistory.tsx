@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { History, Undo2, Calendar, User } from 'lucide-react'
@@ -197,7 +198,7 @@ export default function ChangeHistory({ userId, hubspotToken }: ChangeHistoryPro
                     <TableCell className="whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground/70" />
-                        {new Date(change.changed_at).toLocaleString()}
+                        <DateDisplay date={change.changed_at} format="time" showTime={true} />
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">{change.page_id}</TableCell>

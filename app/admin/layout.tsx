@@ -18,6 +18,19 @@ const inter = Inter({ subsets: ['latin'] })
 
 const adminLinks = [{ name: 'Headers', href: '/admin/headers', icon: FileText }]
 
+// Helper function to check if we're in development environment
+const isDevelopmentEnvironment = () => {
+  if (typeof window === 'undefined') return false
+
+  return (
+    process.env.NODE_ENV === 'development' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.endsWith('.local')
+  )
+}
+
 // Hardcoded password
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -41,6 +54,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Check if user is authenticated for admin access
     const checkAdminAuth = async () => {
+      // Bypass authentication in development environment
+      if (isDevelopmentEnvironment()) {
+        console.log('🔓 Admin authentication bypassed in development environment')
+        setIsAuthenticated(true)
+        setIsCheckingAuth(false)
+        return
+      }
+
       const sessionKey = 'admin_authenticated'
       const isAuth = sessionStorage.getItem(sessionKey)
       if (isAuth === 'true') {
@@ -397,6 +418,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex flex-1 items-center justify-between">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-semibold">Admin Panel</h1>
+                {mounted && isDevelopmentEnvironment() && (
+                  <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-md font-medium">
+                    DEV MODE
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

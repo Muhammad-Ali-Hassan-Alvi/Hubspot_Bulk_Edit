@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -52,7 +53,7 @@ const renderCellContent = (dataObject: { [key: string]: any }, columnKey: string
     return <span className="text-muted-foreground">N/A</span>
   }
   if (['updatedAt', 'createdAt', 'publishDate'].includes(columnKey)) {
-    return new Date(value).toLocaleDateString()
+    return <DateDisplay date={value} format="short" />
   }
   if (columnKey === 'state') {
     return (

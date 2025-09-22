@@ -133,7 +133,6 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
     return []
   }
 
-
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'success':
@@ -260,7 +259,8 @@ export default function BulkEditingLogs({ user: _user }: { user: SupabaseUser })
                           <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <strong>Timestamp:</strong> <DateDisplay date={log.timestamp} format="time" showTime={true} />
+                                <strong>Timestamp:</strong>{' '}
+                                <DateDisplay date={log.timestamp} format="time" showTime={true} />
                               </div>
                               <div>
                                 <strong>Status:</strong>

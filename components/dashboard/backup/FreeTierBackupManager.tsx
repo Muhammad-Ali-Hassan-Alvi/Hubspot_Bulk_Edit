@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { Clock, Database, Globe, Download } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface FreeTierBackupManagerProps {
   userId: string
@@ -191,7 +192,7 @@ export default function FreeTierBackupManager({
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Last Backup:</span>
               <span className="text-sm text-muted-foreground">
-                {new Date(lastBackup).toLocaleString()}
+                <DateDisplay date={lastBackup} format="time" showTime={true} />
               </span>
             </div>
           )}

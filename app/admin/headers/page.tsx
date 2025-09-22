@@ -286,7 +286,7 @@ export default function HeadersPage() {
                     'Refresh Headers'
                   )}
                 </Button>
-                <MissingHeadersPopup />
+                <MissingHeadersPopup onHeadersUpdated={() => getHeadersConfigurations(true)} />
                 {/* <DefaultConfigurationPopup /> */}
                 {/* <SyncWithGSheetsPopup /> */}
                 {/* <AddHeader

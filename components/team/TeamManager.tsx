@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import {
   Select,
   SelectContent,
@@ -332,7 +333,9 @@ export default function TeamManager({ user, isPremium }: TeamManagerProps) {
                   <div className="text-right text-sm text-gray-500">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      <span>Joined {new Date(member.joinedAt).toLocaleDateString()}</span>
+                      <span>
+                        Joined <DateDisplay date={member.joinedAt} format="short" />
+                      </span>
                     </div>
                   </div>
 

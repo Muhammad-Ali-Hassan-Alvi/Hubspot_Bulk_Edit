@@ -231,7 +231,6 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
     setIsModalOpen(true)
   }
 
-
   // Group changes by page for the modal
   const getPageChanges = (log: HubSpotLog): PageChanges[] => {
     if (!log.details?.changes) return []
@@ -372,7 +371,9 @@ export default function HubSpotActivityLogs({ user: _user }: { user: SupabaseUse
                       <td className="px-4 py-3">
                         {getStatusBadge(log.status || 'Unknown', log.failure_count)}
                       </td>
-                      <td className="px-4 py-3"><DateDisplay date={log.created_at} format="short" /></td>
+                      <td className="px-4 py-3">
+                        <DateDisplay date={log.created_at} format="time" showTime={true} />
+                      </td>
                       <td className="px-4 py-3">
                         <Button
                           variant="link"

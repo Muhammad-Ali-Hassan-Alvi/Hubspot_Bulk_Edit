@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { RotateCcw, Calendar, FileText, AlertTriangle, Eye, Undo2 } from 'lucide-react'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 
 interface RollbackManagerProps {
   user: User
@@ -259,14 +260,9 @@ export default function RollbackManager({
     }
   }
 
-  const formatDateTime = (dateString: string) =>
-    new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  const formatDateTime = (dateString: string) => {
+    return <DateDisplay date={dateString} format="time" showTime={true} />
+  }
 
   return (
     <div className="space-y-6">
@@ -298,7 +294,9 @@ export default function RollbackManager({
                   {availableDates.map(dateInfo => (
                     <SelectItem key={dateInfo.date} value={dateInfo.date}>
                       <div className="flex items-center justify-between w-full">
-                        <span>{new Date(dateInfo.date).toLocaleDateString()}</span>
+                        <span>
+                          <DateDisplay date={dateInfo.date} format="short" />
+                        </span>
                         <Badge variant="outline" className="ml-2">
                           {dateInfo.changes_count} changes
                         </Badge>
@@ -330,7 +328,7 @@ export default function RollbackManager({
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-blue-600" />
                 <span className="font-medium text-blue-900">
-                  Showing changes for {new Date(selectedDate).toLocaleDateString()}
+                  Showing changes for <DateDisplay date={selectedDate} format="short" />
                 </span>
               </div>
               {selectedPageId !== 'default' && (

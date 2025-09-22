@@ -231,7 +231,6 @@ export default function AuditLogs() {
     setIsStatusModalOpen(true)
   }
 
-
   const uniqueActions = [...new Set(logs.map(log => log.action_type))]
   const uniqueResources = [...new Set(logs.map(log => log.resource_type))]
   const uniqueStatuses = [
@@ -433,7 +432,9 @@ export default function AuditLogs() {
                           {getStatusBadge(log.status || 'Unknown', log.failure_count)}
                         </div>
                       </td>
-                      <td className="px-4 py-3"><DateDisplay date={log.created_at} format="short" /></td>
+                      <td className="px-4 py-3">
+                        <DateDisplay date={log.created_at} format="time" showTime={true} />
+                      </td>
                       <td className="px-4 py-3">
                         <Button
                           variant="link"

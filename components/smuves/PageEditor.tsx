@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { DateDisplay } from '@/components/shared/DateDisplay'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -320,7 +321,7 @@ export default function PageEditor({
                             <Badge variant="default">{page.status}</Badge>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {new Date(page.updatedAt).toLocaleDateString()}
+                            <DateDisplay date={page.updatedAt} format="short" />
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
