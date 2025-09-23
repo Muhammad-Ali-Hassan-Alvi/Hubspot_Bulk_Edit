@@ -20,6 +20,7 @@ import { Loader2, Plus, FileSpreadsheet } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { User } from '@supabase/supabase-js'
+import SheetLinkDisplay from '../../SheetLinkDisplay'
 
 interface GoogleSheet {
   id: string
@@ -41,6 +42,7 @@ interface SelectSheetAndTabProps {
   setExportingToSheets: (exporting: boolean) => void
   selectedSheetId: string
   setSelectedSheetId: (sheetId: string) => void
+  isImportContext?: boolean
 }
 
 const SelectSheetAndTab = ({
@@ -52,6 +54,7 @@ const SelectSheetAndTab = ({
   setSelectedSheetId,
   // onConnectionUpdate = () => {},
   setExportingToSheets,
+  isImportContext = false,
 }: SelectSheetAndTabProps) => {
   const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false)
   const [sheets, setSheets] = useState<GoogleSheet[]>([])
@@ -65,6 +68,9 @@ const SelectSheetAndTab = ({
   const [isNewTabModalOpen, setIsNewTabModalOpen] = useState(false)
 
   const { toast } = useToast()
+
+  // Get the selected sheet name from the sheets array
+  const selectedSheetName = sheets.find(sheet => sheet.id === selectedSheetId)?.name || ''
 
   useEffect(() => {
     if (selectedSheetId && selectedTabId) {
@@ -363,7 +369,9 @@ const SelectSheetAndTab = ({
       <div className="space-y-4 p-4 border rounded-lg bg-content">
         <div className="flex items-center gap-2">
           <FileSpreadsheet className="h-4 w-4" />
-          <Label className="text-sm font-medium">Select Existing Google Sheet or Create New</Label>
+          <Label className="text-sm font-medium">
+            {isImportContext ? 'Select Google Sheet' : 'Select Existing Google Sheet or Create New'}
+          </Label>
         </div>
 
         <div className="space-y-3">
@@ -381,12 +389,14 @@ const SelectSheetAndTab = ({
                   />
                 </SelectTrigger>
                 <SelectContent className="z-[9999]">
-                  <SelectItem value="new">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Plus className="h-3 w-3" />
-                      Create New Sheet
-                    </div>
-                  </SelectItem>
+                  {!isImportContext && (
+                    <SelectItem value="new">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Plus className="h-3 w-3" />
+                        Create New Sheet
+                      </div>
+                    </SelectItem>
+                  )}
                   {fetchingSheets ? (
                     <SelectItem value="loading" disabled>
                       <div className="flex items-center gap-2">
@@ -416,12 +426,14 @@ const SelectSheetAndTab = ({
                   <SelectValue placeholder={fetchingTabs ? 'Loading tabs...' : 'Choose a tab...'} />
                 </SelectTrigger>
                 <SelectContent className="z-[9999]">
-                  <SelectItem value="new">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Plus className="h-3 w-3" />
-                      Create New Tab
-                    </div>
-                  </SelectItem>
+                  {!isImportContext && (
+                    <SelectItem value="new">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <Plus className="h-3 w-3" />
+                        Create New Tab
+                      </div>
+                    </SelectItem>
+                  )}
                   {fetchingTabs ? (
                     <SelectItem value="loading" disabled>
                       <div className="flex items-center gap-2">
@@ -441,6 +453,9 @@ const SelectSheetAndTab = ({
             </div>
           </div>
         </div>
+
+        {/* Show selected sheet link */}
+        <SheetLinkDisplay sheetId={selectedSheetId} sheetName={selectedSheetName} />
       </div>
 
       {/* New Tab Modal */}

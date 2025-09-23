@@ -25,7 +25,6 @@ export default function UserbackProvider({ children }: UserbackProviderProps) {
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_USERBACK_TOKEN
-    console.log('Userback token:', token ? 'Present' : 'Missing')
 
     if (!token) return
 

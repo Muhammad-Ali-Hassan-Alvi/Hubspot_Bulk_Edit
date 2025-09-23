@@ -53,8 +53,6 @@ interface FilterProps {
   setItemsPerPage?: (itemsPerPage: number) => void
   currentPage?: number
   setCurrentPage?: (currentPage: number) => void
-  dateRange?: [Date | null, Date | null]
-  setDateRange?: (dateRange: [Date | null, Date | null]) => void
   content?: HubSpotContent[]
 }
 
@@ -109,12 +107,11 @@ export default function Filters({
   dynamicFilters,
   setDynamicFilters,
   contentType,
-  dateRange,
-  setDateRange,
   content = [],
 }: FilterProps) {
   // Dynamic filterable fields from database
   const [filterableFields, setFilterableFields] = useState<string[]>([])
+  const [fieldMetadata, setFieldMetadata] = useState<{ [key: string]: any }>({})
 
   // Initialize temp filter value based on current active filter
   // const filterableFields = contentType
@@ -122,6 +119,13 @@ export default function Filters({
   //   : []
 
   const [loadingFields, setLoadingFields] = useState(false)
+
+  // Separate state for date picker
+  const [publishDateValue, setPublishDateValue] = useState<Date | null>(null)
+  const [archivedAtValue, setArchivedAtValue] = useState<Date | null>(null)
+
+  // Check if status field is available and filterable
+  const hasStatusFilter = fieldMetadata.status?.filters === true
 
   // State for the selected filter field and its value (temporary until Apply is clicked)
 
@@ -169,10 +173,21 @@ export default function Filters({
         // Extract the field names (api_name) from the headers
         const fields = data.headers.map((header: any) => header.key)
         setFilterableFields([...fields])
+
+        // Store field metadata for type detection and options
+        const metadata: { [key: string]: any } = {}
+        data.headers.forEach((header: any) => {
+          metadata[header.key] = {
+            type: header.type,
+            options: header.options,
+            label: header.label,
+          }
+        })
+        setFieldMetadata(metadata)
+
         if (fields.length > 0) {
           setSelectedFilterField(fields[0])
         }
-        console.log('Fetched filterable fields:', fields)
       } else {
         console.error('Failed to fetch filterable fields:', data.error)
         // Set empty array if no database fields found
@@ -197,7 +212,11 @@ export default function Filters({
     }
   }, [contentType])
 
-  const displayedFilterFields = filterableFields.filter(field => field !== 'state')
+  // Filter out date fields and status from main dropdown - they have separate controls
+  const displayedFilterFields = filterableFields.filter(
+    field =>
+      field !== 'state' && field !== 'publishDate' && field !== 'archivedAt' && field !== 'status'
+  )
 
   // Lazy loading dropdown options for filters
   const [filterDropdownOptions, setFilterDropdownOptions] = useState<{ [key: string]: string[] }>(
@@ -246,17 +265,37 @@ export default function Filters({
     if (!displayedFilterFields.includes(selectedFilterField)) {
       const defaultField = getDefaultFilterField(contentType?.name, displayedFilterFields)
       setSelectedFilterField(defaultField)
+      setTempFilterValue('') // Only reset when changing to a different field
     }
-    setTempFilterValue('')
   }, [contentType, displayedFilterFields, selectedFilterField]) // Added missing dependencies
+
+  // Fetch dropdown options when selectedFilterField changes
+  useEffect(() => {
+    if (selectedFilterField && !loadedFilterFields.has(selectedFilterField)) {
+      fetchFilterDropdownOptions(selectedFilterField)
+    }
+  }, [selectedFilterField, fetchFilterDropdownOptions, loadedFilterFields])
 
   // ... (dropdownOptions and useEffect remain the same) ...
 
   const dropdownOptions = useMemo(() => {
     const options: { [key: string]: string[] } = {}
 
-    DROPDOWN_FIELDS.forEach(field => {
+    // Use all filterable fields instead of just DROPDOWN_FIELDS
+    const allFields = [...filterableFields, ...DROPDOWN_FIELDS]
+    const uniqueFields = [...new Set(allFields)]
+
+    uniqueFields.forEach(field => {
       const uniqueValues = new Set<string>()
+
+      // Add options from API response metadata first (most reliable)
+      if (fieldMetadata[field]?.options && Array.isArray(fieldMetadata[field].options)) {
+        fieldMetadata[field].options.forEach((option: string) => {
+          if (option && typeof option === 'string' && option.trim() !== '') {
+            uniqueValues.add(option.trim())
+          }
+        })
+      }
 
       // Add options from current content
       content.forEach(item => {
@@ -277,75 +316,37 @@ export default function Filters({
     })
 
     return options
-  }, [content, filterDropdownOptions])
+  }, [content, filterDropdownOptions, fieldMetadata, filterableFields])
 
-  useEffect(() => {
-    let currentValue = ''
-    switch (selectedFilterField) {
-      case 'name':
-        currentValue = searchTerm
-        break
-      case 'slug':
-        currentValue = slugSearchTerm
-        break
-      case 'htmlTitle':
-        currentValue = htmlTitleSearchTerm
-        break
-      case 'language':
-        currentValue = languageFilter === 'all' ? '' : languageFilter
-        break
-      case 'publishDate':
-        currentValue = publishDateFilter
-        break
-      case 'createdAt':
-        currentValue = createdAtFilter
-        break
-      case 'authorName':
-      case 'domain':
-      case 'destination':
-      case 'routePrefix':
-        currentValue = dynamicFilters[selectedFilterField] || 'all'
-        break
-      default:
-        break
-    }
-    setTempFilterValue(currentValue)
-  }, [
-    selectedFilterField,
-    searchTerm,
-    slugSearchTerm,
-    htmlTitleSearchTerm,
-    languageFilter,
-    stateFilter,
-    publishDateFilter,
-    createdAtFilter,
-    dynamicFilters,
-  ])
+  // Remove the problematic useEffect that was overriding user selections
 
-  // <<< CHANGE 1: CREATE A STATE FOR THE BUTTON'S DISABLED STATUS
-  // This will determine if the "Apply" button is clickable.
-  // It's enabled only if there's a temporary value that is not empty and not 'all'.
+  // Apply button should be enabled only when user selects a specific value (not 'all')
   const isApplyDisabled = useMemo(() => {
-    if (!tempFilterValue || tempFilterValue.trim() === '' || tempFilterValue === 'all') {
-      return true // Disable the button
+    // Enable only if there's a value and it's not 'all'
+    if (tempFilterValue && tempFilterValue.trim() !== '' && tempFilterValue !== 'all') {
+      return false // Enable the button
     }
-    return false // Enable the button
-  }, [tempFilterValue])
+    return true // Disable the button
+  }, [tempFilterValue, selectedFilterField])
 
   // ... (handleApplyFilters, handleClearFilters, etc. remain the same) ...
   const formatFieldName = (fieldName: string) => {
+    // Use API response label if available
+    if (fieldMetadata[fieldName]?.label) {
+      return fieldMetadata[fieldName].label
+    }
+
+    // Fallback to formatted field name
     return fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/([A-Z])/g, ' $1')
   }
 
   const getFieldType = (fieldName: string) => {
-    // For now, we'll use simple type inference based on field name
-    // This could be enhanced later to fetch type info from the database
-    // OLD
-    // if (fieldName === 'publishDate') return 'date'
-    // if (fieldName === 'state') return 'select'
-    // if (fieldName.includes('count') || fieldName.includes('number') || fieldName.includes('id'))
-    //   return 'number'
-    // return 'string'
+    // Use field metadata from API response
+    if (fieldMetadata[fieldName]) {
+      return fieldMetadata[fieldName].type || 'string'
+    }
+
+    // Fallback to old logic if metadata not available
     if (!contentType) return 'string'
     const headerInfo = getHeaderInfo(fieldName, contentType?.name)
     return headerInfo?.dataType || 'string'
@@ -353,7 +354,38 @@ export default function Filters({
 
   const handleFilterFieldChange = (fieldName: string) => {
     setSelectedFilterField(fieldName)
-    setTempFilterValue('')
+    // Set initial value based on current filter state
+    let currentValue = ''
+    switch (fieldName) {
+      case 'name':
+        currentValue = searchTerm || ''
+        break
+      case 'slug':
+        currentValue = slugSearchTerm || ''
+        break
+      case 'htmlTitle':
+        currentValue = htmlTitleSearchTerm || ''
+        break
+      case 'language':
+        currentValue = languageFilter === 'all' ? '' : languageFilter
+        break
+      case 'publishDate':
+        currentValue = publishDateFilter || ''
+        break
+      case 'createdAt':
+        currentValue = createdAtFilter || ''
+        break
+      case 'authorName':
+      case 'domain':
+      case 'destination':
+      case 'routePrefix':
+        currentValue = dynamicFilters[fieldName] || ''
+        break
+      default:
+        currentValue = dynamicFilters[fieldName] || ''
+        break
+    }
+    setTempFilterValue(currentValue)
   }
 
   const handleTempFilterValueChange = (value: string) => {
@@ -370,6 +402,17 @@ export default function Filters({
     setPublishDateFilter('')
     setCreatedAtFilter('')
     setDynamicFilters({})
+
+    // Handle separate date picker values
+    if (publishDateValue) {
+      setPublishDateFilter(publishDateValue.toISOString())
+    }
+    if (archivedAtValue) {
+      setDynamicFilters((prev: { [key: string]: string }) => ({
+        ...prev,
+        archivedAt: archivedAtValue.toISOString(),
+      }))
+    }
 
     switch (selectedFilterField) {
       case 'name':
@@ -431,7 +474,8 @@ export default function Filters({
     setPublishDateFilter('')
     setCreatedAtFilter('')
     setDynamicFilters({})
-    if (setDateRange) setDateRange([null, null])
+    setPublishDateValue(null)
+    setArchivedAtValue(null)
   }
 
   const getPlaceholderText = (fieldName: string) => {
@@ -464,7 +508,33 @@ export default function Filters({
         </Select>
 
         {/* ... (The value selector and input remain the same) ... */}
-        {selectedFilterField !== 'publishDate' ? (
+        {getFieldType(selectedFilterField) === 'boolean' ? (
+          <Select value={tempFilterValue} onValueChange={handleTempFilterValueChange}>
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder={`Select ${formatFieldName(selectedFilterField)}`} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All {formatFieldName(selectedFilterField)}s</SelectItem>
+              {fieldMetadata[selectedFilterField]?.options?.map((option: string) => (
+                <SelectItem key={option} value={option}>
+                  {option === 'true' ? 'True' : option === 'false' ? 'False' : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : getFieldType(selectedFilterField) === 'number' ? (
+          <div className="relative w-[250px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+            <Input
+              placeholder={getPlaceholderText(selectedFilterField)}
+              value={tempFilterValue}
+              onChange={e => handleTempFilterValueChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="pl-10"
+              type="number"
+            />
+          </div>
+        ) : (
           <Select
             value={tempFilterValue}
             onValueChange={handleTempFilterValueChange}
@@ -485,7 +555,12 @@ export default function Filters({
                   Loading options...
                 </SelectItem>
               ) : (
-                dropdownOptions[selectedFilterField]?.map((option: string) => (
+                // Use API options first, then fallback to dropdown options
+                (
+                  fieldMetadata[selectedFilterField]?.options ||
+                  dropdownOptions[selectedFilterField] ||
+                  []
+                )?.map((option: string) => (
                   <SelectItem key={option} value={option}>
                     {option}
                   </SelectItem>
@@ -493,50 +568,55 @@ export default function Filters({
               )}
             </SelectContent>
           </Select>
-        ) : (
-          <div className="relative w-[250px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
-            <Input
-              placeholder={getPlaceholderText(selectedFilterField)}
-              value={tempFilterValue}
-              onChange={e => handleTempFilterValueChange(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="pl-10"
-              type={getFieldType(selectedFilterField) === 'number' ? 'number' : 'text'}
+        )}
+
+        {/* Status Filter - only show if status field is filterable */}
+        {hasStatusFilter && (
+          <Select value={stateFilter} onValueChange={value => setStateFilter(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="PUBLISHED">Published</SelectItem>
+              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+              <SelectItem value="PUBLISHED_OR_SCHEDULED">Published or Scheduled</SelectItem>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Publish Date Filter - separate date picker */}
+        {filterableFields.includes('publishDate') && (
+          <div className="relative">
+            <DatePicker
+              selected={publishDateValue}
+              onChange={(date: Date | null) => setPublishDateValue(date)}
+              isClearable
+              placeholderText="Publish Date"
+              customInput={<DatePickerCustomInput placeholder="Publish Date" />}
+              className="w-[200px]"
+              popperClassName="z-[50]"
+              popperPlacement="bottom-start"
             />
           </div>
         )}
 
-        {/* ... (Other filters like State and DatePicker remain the same) ... */}
-        <Select value={stateFilter} onValueChange={value => setStateFilter(value)}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="State" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All States</SelectItem>
-            <SelectItem value="PUBLISHED">Published</SelectItem>
-            <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-            <SelectItem value="PUBLISHED_OR_SCHEDULED">Published or Scheduled</SelectItem>
-            <SelectItem value="DRAFT">Draft</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div className="relative">
-          <DatePicker
-            selectsRange
-            startDate={dateRange?.[0] || null}
-            endDate={dateRange?.[1] || null}
-            onChange={(update: [Date | null, Date | null]) => {
-              if (setDateRange) setDateRange(update)
-            }}
-            isClearable
-            placeholderText="Select Publish Date"
-            customInput={<DatePickerCustomInput placeholder="Select Publish Date" />}
-            className="w-[200px]"
-            popperClassName="z-[50]"
-            popperPlacement="bottom-start"
-          />
-        </div>
+        {/* Archived At Filter - separate date picker */}
+        {filterableFields.includes('archivedAt') && (
+          <div className="relative">
+            <DatePicker
+              selected={archivedAtValue}
+              onChange={(date: Date | null) => setArchivedAtValue(date)}
+              isClearable
+              placeholderText="Archived At"
+              customInput={<DatePickerCustomInput placeholder="Archived At" />}
+              className="w-[200px]"
+              popperClassName="z-[50]"
+              popperPlacement="bottom-start"
+            />
+          </div>
+        )}
 
         <div className="flex gap-2">
           {/* <<< CHANGE 2: UPDATE THE APPLY BUTTON LOGIC */}

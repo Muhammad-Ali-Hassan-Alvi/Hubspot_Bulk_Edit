@@ -48,6 +48,7 @@ interface DataTableProps {
   setItemsPerPage?: (itemsPerPage: number) => void
   showPagination?: boolean
   customColumnHeaders?: { [key: string]: string }
+  isImportContext?: boolean
 }
 
 const formatColumnLabel = (key: string, customHeaders?: { [key: string]: string }) => {
@@ -122,6 +123,7 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
       onColumnReorder,
       showPagination = false,
       customColumnHeaders = {},
+      isImportContext = false,
     },
     ref
   ) => {
@@ -564,8 +566,9 @@ const DataTable = forwardRef<HTMLDivElement, DataTableProps>(
               <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium">No Content Found</h3>
               <p className="text-muted-foreground mb-4">
-                No {currentContentTypeLabel.toLowerCase()} found. Try changing the content type or
-                filters.
+                {isImportContext
+                  ? 'No content found in the selected sheet or file.'
+                  : `No ${currentContentTypeLabel.toLowerCase()} found. Try changing the content type or filters.`}
               </p>
             </CardContent>
           </Card>

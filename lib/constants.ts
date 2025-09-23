@@ -1,3 +1,13 @@
+// User Export Status Enum
+export const UserExportStatusEnum = {
+  ACTIVE: 'active',
+  ARCHIVED: 'archived',
+  CONSUMED: 'consumed',
+  DELETED: 'deleted',
+} as const
+
+export type UserExportStatus = (typeof UserExportStatusEnum)[keyof typeof UserExportStatusEnum]
+
 export const EXCLUDED_KEYS_FROM_TABLE = new Set([
   'id',
   'archivedAt',

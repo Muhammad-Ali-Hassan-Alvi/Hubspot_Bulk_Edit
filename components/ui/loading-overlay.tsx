@@ -7,9 +7,17 @@ import { Loader2 } from 'lucide-react'
 interface LoadingOverlayProps {
   isLoading: boolean
   delay?: number
+  message?: string
+  delayedMessage?: string
+  fullScreen?: boolean
 }
 
-export function LoadingOverlay({ isLoading, delay = 2000 }: LoadingOverlayProps) {
+export function LoadingOverlay({
+  isLoading,
+  delay = 2000,
+  message = 'Loading...',
+  delayedMessage = 'Just there...',
+}: LoadingOverlayProps) {
   const [showDelayedMessage, setShowDelayedMessage] = useState(false)
 
   useEffect(() => {
@@ -51,7 +59,7 @@ export function LoadingOverlay({ isLoading, delay = 2000 }: LoadingOverlayProps)
                 animate={{ opacity: 1, y: 0 }}
                 className="text-lg font-medium text-foreground"
               >
-                Loading...
+                {message}
               </motion.p>
 
               <AnimatePresence>
@@ -62,7 +70,7 @@ export function LoadingOverlay({ isLoading, delay = 2000 }: LoadingOverlayProps)
                     exit={{ opacity: 0, y: -10 }}
                     className="text-sm text-muted-foreground"
                   >
-                    Just there...
+                    {delayedMessage}
                   </motion.p>
                 )}
               </AnimatePresence>

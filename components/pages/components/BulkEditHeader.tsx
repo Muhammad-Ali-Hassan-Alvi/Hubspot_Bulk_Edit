@@ -25,6 +25,7 @@ import { X, PenSquare, RefreshCw, CalendarIcon, Loader2 } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { ContentTypeT } from '@/lib/content-types'
+import Link from 'next/link'
 
 const DatePickerCustomInput = forwardRef(({ value, onClick }: any, ref: any) => (
   <Button variant="outline" onClick={onClick} ref={ref} className="w-full justify-start">
@@ -88,10 +89,8 @@ export default function BulkEditHeader({
       const response = await fetch(`/api/hubspot/headers?${params}`)
       const data = await response.json()
 
-      console.log('umar data', data)
       if (data.success) {
         setDynamicFields(data.headers)
-        console.log('Fetched dynamic headers:', data.headers)
       } else {
         console.error('Failed to fetch headers:', data.error)
         toast({
@@ -174,7 +173,14 @@ export default function BulkEditHeader({
 
   const fieldOptions = useMemo(() => {
     // Combine HubSpot options with local content options for better coverage
-    const combinedOptions = { ...hubspotDropdownOptions }
+    const combinedOptions: { [key: string]: string[] } = { ...hubspotDropdownOptions }
+
+    // Add options from dynamic fields (headers API)
+    dynamicFields.forEach(field => {
+      if (field.options && field.options.length > 0) {
+        combinedOptions[field.key] = [...field.options]
+      }
+    })
 
     // Add default options for certain fields
     if (!combinedOptions.state) {
@@ -250,21 +256,25 @@ export default function BulkEditHeader({
           combinedOptions[fieldKey].forEach(option => values.add(option))
         }
 
-        // Add options from current content
-        allContent.forEach(item => {
-          const value = item.allHeaders?.[fieldKey] || item[fieldKey]
-          if (value) {
-            if (Array.isArray(value)) {
-              value.forEach(v => {
-                if (v && typeof v === 'string' && v.trim() !== '') {
-                  values.add(v.trim())
-                }
-              })
-            } else if (typeof value === 'string' && value.trim() !== '') {
-              values.add(value.trim())
+        const isArrayField = dynamicFields.some(
+          field => field.key === fieldKey && field.type === 'array'
+        )
+        if (!isArrayField) {
+          allContent.forEach(item => {
+            const value = item.allHeaders?.[fieldKey] || item[fieldKey]
+            if (value) {
+              if (Array.isArray(value)) {
+                value.forEach(v => {
+                  if (v && typeof v === 'string' && v.trim() !== '') {
+                    values.add(v.trim())
+                  }
+                })
+              } else if (typeof value === 'string' && value.trim() !== '') {
+                values.add(value.trim())
+              }
             }
-          }
-        })
+          })
+        }
 
         const uniqueOptions = Array.from(values)
         if (uniqueOptions.length > 0) {
@@ -274,7 +284,7 @@ export default function BulkEditHeader({
     }
 
     return combinedOptions
-  }, [hubspotDropdownOptions, allContent])
+  }, [hubspotDropdownOptions, allContent, dynamicFields])
 
   // Use dynamic fields from database only
   const fieldsToUse = useMemo(() => {
@@ -286,6 +296,8 @@ export default function BulkEditHeader({
   }, [fieldsToUse])
 
   const handleValueChange = (key: string, value: any) => {
+    console.log('umar value', value)
+    console.log('umar key', key)
     setUpdates(prev => {
       const newUpdates = { ...prev, [key]: value }
       return newUpdates
@@ -365,112 +377,10 @@ export default function BulkEditHeader({
     const hasOptions = dynamicOptions && dynamicOptions.length > 0
     const isLoading = loadingAllDropdownOptions
 
-    // Fields that should always be dropdowns
-    const alwaysDropdownFields = [
-      'language',
-      'domain',
-      'tagIds',
-      'precedence',
-      'redirectStyle',
-      'campaign',
-      'authorName',
-      'blogAuthorId',
-      'contentGroupId',
-      'state',
-      'archived',
-    ]
+    // Use the field type from database configuration
+    const fieldType = field.type || 'string'
 
-    // Special case: publishDate should always show calendar
-    if (field.key === 'publishDate') {
-      return (
-        <div className="relative z-[60]">
-          <DatePicker
-            selected={updates[field.key] ? new Date(updates[field.key]) : null}
-            onChange={(date: Date | null) => {
-              if (date) {
-                const year = date.getFullYear()
-                const month = String(date.getMonth() + 1).padStart(2, '0')
-                const day = String(date.getDate()).padStart(2, '0')
-                handleValueChange(field.key, `${year}-${month}-${day}`)
-              } else {
-                handleValueChange(field.key, '')
-              }
-            }}
-            dateFormat="MMMM d, yyyy"
-            isClearable
-            placeholderText="Select date"
-            customInput={<DatePickerCustomInput />}
-            className="w-full"
-            wrapperClassName="w-full"
-            popperClassName="z-[60]"
-            popperPlacement="bottom-start"
-          />
-        </div>
-      )
-    }
-
-    // Show dropdown if we have options OR if it's a field that should always be a dropdown
-    if (hasOptions || alwaysDropdownFields.includes(field.key)) {
-      return (
-        <div className="space-y-1">
-          <Select
-            value={updates[field.key] ? String(updates[field.key]) : ''}
-            onValueChange={value => handleValueChange(field.key, value)}
-          >
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder={field.label} />
-            </SelectTrigger>
-            <SelectContent>
-              {isLoading ? (
-                <SelectItem value="loading" disabled>
-                  Loading options...
-                </SelectItem>
-              ) : hasOptions ? (
-                dynamicOptions.map(option => {
-                  // Special handling for archivedInDashboard to show Yes/No but send true/false
-                  if (field.key === 'archivedInDashboard') {
-                    const displayValue =
-                      option === 'true' ? 'Yes' : option === 'false' ? 'No' : option
-                    return (
-                      <SelectItem key={option} value={option}>
-                        {displayValue}
-                      </SelectItem>
-                    )
-                  }
-                  return (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  )
-                })
-              ) : (
-                <SelectItem value="no-options" disabled>
-                  No Value
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      )
-    }
-
-    // If no options available, show disabled field with "No Value"
-    if (!hasOptions && !isLoading) {
-      return (
-        <div className="space-y-1">
-          <Select disabled>
-            <SelectTrigger className="bg-background opacity-50">
-              <SelectValue placeholder="No Value" />
-            </SelectTrigger>
-          </Select>
-          {/* <p className="text-xs text-muted-foreground">
-            No data found for this field in your HubSpot account
-          </p> */}
-        </div>
-      )
-    }
-
-    switch (field.type) {
+    switch (fieldType) {
       case 'boolean':
         return (
           <Select
@@ -489,34 +399,59 @@ export default function BulkEditHeader({
           </Select>
         )
       case 'select':
+      case 'dropdown':
+        if (hasOptions) {
+          return (
+            <div className="space-y-1">
+              <Select
+                value={updates[field.key] ? String(updates[field.key]) : ''}
+                onValueChange={value => handleValueChange(field.key, value)}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder={field.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading options...
+                    </SelectItem>
+                  ) : (
+                    dynamicOptions.map(option => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        }
+        // If no options available for select field, show as text input
         return (
-          <Select
-            value={updates[field.key] ? String(updates[field.key]) : ''}
-            onValueChange={value => handleValueChange(field.key, value)}
-          >
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder={field.label} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options?.map(option => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            className="bg-background"
+            placeholder={field.label}
+            value={
+              updates[field.key] !== undefined && updates[field.key] !== null
+                ? String(updates[field.key])
+                : ''
+            }
+            onChange={e => handleValueChange(field.key, e.target.value)}
+          />
         )
       case 'datetime':
+      case 'date':
         return (
-          <div className="relative z-[60]">
+          <div className="relative z-[30]">
             <DatePicker
               selected={updates[field.key] ? new Date(updates[field.key]) : null}
               onChange={(date: Date | null) => {
                 if (date) {
-                  const year = date.getFullYear()
-                  const month = String(date.getMonth() + 1).padStart(2, '0')
-                  const day = String(date.getDate()).padStart(2, '0')
-                  handleValueChange(field.key, `${year}-${month}-${day}`)
+                  // Set time to 00:00:00 and convert to ISO string format
+                  date.setHours(0, 0, 0, 0)
+                  const isoString = date.toISOString().replace(/\.\d{3}Z$/, 'Z')
+                  handleValueChange(field.key, isoString)
                 } else {
                   handleValueChange(field.key, '')
                 }
@@ -533,53 +468,38 @@ export default function BulkEditHeader({
           </div>
         )
       case 'array':
-        // Check if this array field should be a dropdown
-        if (alwaysDropdownFields.includes(field.key)) {
-          return (
-            <div className="space-y-1">
-              <Select
-                value={updates[field.key] ? String(updates[field.key]) : ''}
-                onValueChange={value => handleValueChange(field.key, value)}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder={field.label} />
-                </SelectTrigger>
-                <SelectContent>
-                  {isLoading ? (
-                    <SelectItem value="loading" disabled>
-                      Loading options...
-                    </SelectItem>
-                  ) : dynamicOptions && dynamicOptions.length > 0 ? (
-                    dynamicOptions.map(option => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="no-options" disabled>
-                      Click to load options...
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )
-        }
-        // Default array input for non-dropdown array fields
+        // For array fields, always show dropdown with all possible values from HubSpot
         return (
-          <Input
-            className="bg-background"
-            placeholder={field.label + ' (comma-separated)'}
-            value={updates[field.key] || ''}
-            onChange={e =>
-              handleValueChange(
-                field.key,
-                e.target.value.split(',').map(item => item.trim())
-              )
-            }
-          />
+          <div className="space-y-1">
+            <Select
+              value={updates[field.key] ? String(updates[field.key]) : ''}
+              onValueChange={value => handleValueChange(field.key, value)}
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder={field.label} />
+              </SelectTrigger>
+              <SelectContent>
+                {isLoading ? (
+                  <SelectItem value="loading" disabled>
+                    Loading options from HubSpot...
+                  </SelectItem>
+                ) : hasOptions ? (
+                  dynamicOptions.map(option => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-options" disabled>
+                    No values found in HubSpot
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         )
       case 'number':
+      case 'integer':
         return (
           <Input
             className="bg-background"
@@ -593,7 +513,10 @@ export default function BulkEditHeader({
             onChange={e => handleValueChange(field.key, Number(e.target.value))}
           />
         )
+      case 'string':
+      case 'text':
       default:
+        // For string/text fields, show text input
         return (
           <Input
             className="bg-background"
@@ -850,7 +773,7 @@ export default function BulkEditHeader({
 
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" asChild>
-                  <a href="/reports-and-logs/logs">
+                  <Link href="/reports-and-logs/logs">
                     <svg
                       className="w-4 h-4 mr-2"
                       fill="none"
@@ -865,7 +788,7 @@ export default function BulkEditHeader({
                       />
                     </svg>
                     View Detailed Logs
-                  </a>
+                  </Link>
                 </Button>
                 <Button
                   onClick={() => {

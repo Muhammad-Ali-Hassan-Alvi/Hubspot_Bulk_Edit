@@ -1,7 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
 
 export const dynamic = 'force-dynamic'
+
+// Function to fetch dropdown values for array fields from all HubSpot APIs
+async function fetchArrayFieldValues(
+  fieldName: string,
+  _contentType: string,
+  headers: HeadersInit
+) {
+  try {
+    // All HubSpot API endpoints to fetch from
+    const allEndpoints = [
+      'https://api.hubapi.com/cms/v3/pages/landing-pages',
+      'https://api.hubapi.com/cms/v3/pages/site-pages',
+      'https://api.hubapi.com/cms/v3/blogs/posts',
+      'https://api.hubapi.com/cms/v3/url-redirects',
+      'https://api.hubapi.com/cms/v3/blogs/tags',
+      'https://api.hubapi.com/cms/v3/blogs/authors',
+      'https://api.hubapi.com/cms/v3/hubdb/tables',
+    ]
+
+    const allValues = new Set<string>()
+
+    console.log(`Fetching values for ${fieldName} from all HubSpot APIs`)
+
+    // Fetch from all endpoints in parallel
+    const fetchPromises = allEndpoints.map(async endpoint => {
+      try {
+        const response = await fetch(`${endpoint}?limit=100`, { headers })
+        if (!response.ok) {
+          console.log(`Failed to fetch from ${endpoint}:`, response.status)
+          return []
+        }
+
+        const data = await response.json()
+        const items = data.results || []
+
+        console.log(`Found ${items.length} items from ${endpoint}`)
+
+        const endpointValues = new Set<string>()
+        items.forEach((item: any, index: number) => {
+          const fieldValue = item[fieldName]
+
+          // Debug: Log the first few items to see the structure
+          if (index < 2) {
+            console.log(
+              `${endpoint} - Item ${index} - ${fieldName}:`,
+              fieldValue,
+              typeof fieldValue
+            )
+          }
+
+          if (Array.isArray(fieldValue)) {
+            fieldValue.forEach((value: any) => {
+              if (value && typeof value === 'string' && value.trim() !== '') {
+                endpointValues.add(value.trim())
+              } else if (value && typeof value === 'number') {
+                endpointValues.add(String(value))
+              }
+            })
+          } else if (fieldValue && typeof fieldValue === 'string' && fieldValue.trim() !== '') {
+            endpointValues.add(fieldValue.trim())
+          }
+        })
+
+        return Array.from(endpointValues)
+      } catch (error) {
+        console.error(`Error fetching from ${endpoint}:`, error)
+        return []
+      }
+    })
+
+    // Wait for all endpoints to complete
+    const allResults = await Promise.all(fetchPromises)
+
+    // Combine all values
+    allResults.forEach(values => {
+      values.forEach(value => allValues.add(value))
+    })
+
+    const result = Array.from(allValues).sort()
+    console.log(`Found ${result.length} unique values for ${fieldName} across all APIs:`, result)
+    return result
+  } catch (error) {
+    console.error(`Error fetching values for ${fieldName}:`, error)
+    return []
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,25 +173,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch header configurations' }, { status: 500 })
     }
 
+    // Get HubSpot auth headers for fetching array field values
+    const user = await getAuthenticatedUser()
+    const hubspotHeaders = await getHubSpotAuthHeaders(user.id)
+
     // Transform the data to match the expected format for BulkEditHeader
-    const headers = configurations.map(config => ({
-      key: config.header_definitions.api_name,
-      label: config.header_definitions.display_name || config.header_definitions.api_name,
-      type:
-        config.data_type === 'date-time'
-          ? 'datetime'
-          : config.data_type === 'boolean'
-            ? 'boolean'
-            : config.data_type === 'number'
-              ? 'number'
-              : 'string',
-      options: config.data_type === 'boolean' ? ['true', 'false'] : undefined,
-      category: config.category,
-      contentType: config.content_types.slug,
-      readOnly: config.read_only,
-      inAppEdit: config.in_app_edit,
-      filters: config.filters,
-    }))
+    const headers = await Promise.all(
+      configurations.map(async config => {
+        const fieldType =
+          config.data_type === 'date-time'
+            ? 'datetime'
+            : config.data_type === 'boolean'
+              ? 'boolean'
+              : config.data_type === 'number'
+                ? 'number'
+                : config.data_type === 'array'
+                  ? 'array'
+                  : 'string'
+
+        let options = undefined
+        if (config.data_type === 'boolean') {
+          options = ['true', 'false']
+        } else if (config.data_type === 'array' && contentType) {
+          // Fetch dropdown values for array fields from HubSpot
+          options = await fetchArrayFieldValues(
+            config.header_definitions.api_name,
+            contentType,
+            hubspotHeaders
+          )
+        }
+
+        return {
+          key: config.header_definitions.api_name,
+          label: config.header_definitions.display_name || config.header_definitions.api_name,
+          type: fieldType,
+          options,
+          category: config.category,
+          contentType: config.content_types.slug,
+          readOnly: config.read_only,
+          inAppEdit: config.in_app_edit,
+          filters: config.filters,
+        }
+      })
+    )
 
     return NextResponse.json({
       success: true,

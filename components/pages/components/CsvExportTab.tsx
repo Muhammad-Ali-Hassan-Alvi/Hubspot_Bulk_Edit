@@ -13,6 +13,7 @@ import type { User } from '@supabase/supabase-js'
 import { generateUUID } from '@/lib/utils'
 import { ContentTypeT } from '@/lib/content-types'
 import { saveUserExport } from '@/lib/export-logger'
+import { UserExportStatusEnum } from '@/lib/constants'
 
 interface CsvExportTabProps {
   availableColumns: { key: string; label: string }[]
@@ -67,6 +68,8 @@ export default function CsvExportTab({
         itemsCount: dataToExport.length,
         sheetId: exportId,
         tabId: '0',
+        snapshotData: processedData, // Include the actual exported data
+        status: UserExportStatusEnum.ACTIVE, // Set status to active for new exports
       })
       // Log to existing audit system - For logs
       await logExportActivity(user.id, 'csv', {

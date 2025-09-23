@@ -13,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  // DialogHeader, DialogTitle
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import LogDetailsModal from './LogDetailsModal'
 import {
@@ -190,7 +194,7 @@ export default function AuditLogs() {
           <Badge className="bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30 flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
             Success{countText}
-            <ChevronDown className="h-3 w-3" />
+            {/* <ChevronDown className="h-3 w-3" /> */}
           </Badge>
         )
       case 'Error':
@@ -198,7 +202,7 @@ export default function AuditLogs() {
           <Badge className="bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 flex items-center gap-1">
             <XCircle className="h-3 w-3" />
             Error{countText}
-            <ChevronDown className="h-3 w-3" />
+            {/* <ChevronDown className="h-3 w-3" /> */}
           </Badge>
         )
       case 'Warning':
@@ -206,7 +210,7 @@ export default function AuditLogs() {
           <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:hover:bg-yellow-900/30 flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" />
             Warning{countText}
-            <ChevronDown className="h-3 w-3" />
+            {/* <ChevronDown className="h-3 w-3" /> */}
           </Badge>
         )
       default:
@@ -214,7 +218,7 @@ export default function AuditLogs() {
           <Badge variant="outline" className="flex items-center gap-1">
             {status}
             {countText}
-            <ChevronDown className="h-3 w-3" />
+            {/* <ChevronDown className="h-3 w-3" /> */}
           </Badge>
         )
     }
@@ -226,9 +230,12 @@ export default function AuditLogs() {
   }
 
   const openStatusModal = (status: string, log: AuditLog) => {
-    setSelectedStatus(status)
-    setSelectedLog(log)
-    setIsStatusModalOpen(true)
+    // Only open status modal for bulk editing logs
+    if (selectedLogType === 'bulk-editing-logs') {
+      setSelectedStatus(status)
+      setSelectedLog(log)
+      setIsStatusModalOpen(true)
+    }
   }
 
   const uniqueActions = [...new Set(logs.map(log => log.action_type))]
@@ -426,7 +433,7 @@ export default function AuditLogs() {
                       )}
                       <td className="px-4 py-3 text-left">
                         <div
-                          className="inline-flex cursor-pointer"
+                          className={`inline-flex ${selectedLogType === 'bulk-editing-logs' ? 'cursor-pointer' : ''}`}
                           onClick={() => openStatusModal(log.status || 'Unknown', log)}
                         >
                           {getStatusBadge(log.status || 'Unknown', log.failure_count)}
@@ -474,15 +481,15 @@ export default function AuditLogs() {
 
       <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
+          {/* <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
               Success Statistics
             </DialogTitle>
-          </DialogHeader>
+          </DialogHeader> */}
 
           <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
+            <div className="bg-white dark:bg-gray-800">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">

@@ -12,9 +12,6 @@ export async function GET(_request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    console.log('🔍 DEBUG: All audit logs:', logs)
-    console.log('🔍 DEBUG: Error:', error)
-
     return NextResponse.json({
       success: true,
       logs: logs || [],

@@ -79,8 +79,6 @@ export async function POST(request: Request) {
     auth.setCredentials({ access_token: accessToken })
     const sheets = google.sheets({ version: 'v4', auth })
 
-    const timestamp = new Date().toISOString()
-
     const columnsWithKeys: ColumnDefinition[] = columns.map((label: string) => {
       // A simple way to create a JS-friendly key from a label
       // "First Name" -> "firstName"
@@ -97,10 +95,9 @@ export async function POST(request: Request) {
     })
 
     // Now TypeScript knows exactly what `columnsWithKeys` is, and the following lines will work without errors.
-    const headers = ['Export Date', ...columnsWithKeys.map(c => c.label)]
+    const headers = columnsWithKeys.map(c => c.label)
 
     const rows = data.map((row: any) => [
-      timestamp,
       ...columnsWithKeys.map(({ key }) => {
         const value = row[key]
         // This safely handles values that are objects, null, or undefined.

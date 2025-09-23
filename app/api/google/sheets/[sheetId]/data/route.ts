@@ -1,91 +1,115 @@
-import { type NextRequest, NextResponse } from 'next/server'
-import { google } from 'googleapis'
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
-import { auditLogger } from '@/lib/services/audit-logger'
+import { getAuthenticatedGoogleSheetsClient } from '@/lib/google-auth-refresh'
 
-export async function POST(request: NextRequest, { params }: { params: { sheetId: string } }) {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest, { params }: { params: { sheetId: string } }) {
   try {
-    const { tabName } = await request.json()
     const { sheetId } = params
+    const { searchParams } = new URL(request.url)
+    const tabId = searchParams.get('tabId')
 
-    if (!sheetId || !tabName) {
-      return NextResponse.json(
-        { success: false, error: 'Missing sheet ID or tab name' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient()
+    // Get authenticated user
     const user = await getAuthenticatedUser()
-
-    const { data: userSettings } = await supabase
-      .from('user_settings')
-      .select('google_access_token')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!userSettings?.google_access_token) {
-      return NextResponse.json(
-        { success: false, error: 'Google Sheets not connected' },
-        { status: 400 }
-      )
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    const auth = new google.auth.OAuth2()
-    auth.setCredentials({ access_token: userSettings.google_access_token })
+    // Get authenticated Google Sheets client with automatic token refresh
+    const sheets = await getAuthenticatedGoogleSheetsClient(user.id, request.url)
 
-    const sheets = google.sheets({ version: 'v4', auth })
+    // Get spreadsheet info to find the correct sheet/tab
+    const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId: sheetId })
+    const existingSheets = spreadsheetInfo.data.sheets ?? []
 
+    let targetSheet = existingSheets[0] // Default to first sheet
+
+    if (tabId) {
+      const matchedSheet = existingSheets.find(
+        sheet => sheet.properties?.sheetId?.toString() === tabId
+      )
+      if (matchedSheet) {
+        targetSheet = matchedSheet
+      }
+    }
+
+    if (!targetSheet?.properties?.title) {
+      return NextResponse.json({ success: false, error: 'Sheet or tab not found' }, { status: 404 })
+    }
+
+    const sheetName = targetSheet.properties.title
+
+    // Get all data from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${tabName}!A:AZ`,
+      range: `${sheetName}!A:ZZ`, // Get all columns up to ZZ
     })
 
-    const rows = response.data.values || []
-
-    if (rows.length === 0) {
+    const values = response.data.values
+    if (!values || values.length === 0) {
       return NextResponse.json({
         success: true,
-        rows: [],
+        data: [],
+        headers: [],
+        sheetName,
       })
     }
 
-    const headers = rows[0]
-    const dataRows = rows.slice(1)
+    // First row should be headers
+    const headers = values[0]
+    const dataRows = values.slice(1)
 
-    const processedData = dataRows.map((row, index) => {
-      const item: any = { id: `gsheet_${index}` }
-      headers.forEach((header, i) => {
-        item[header] = row[i] || ''
+    // Convert rows to objects using headers as keys
+    const data = dataRows.map((row: any[], index: number) => {
+      const rowData: any = {}
+
+      headers.forEach((header: string, colIndex: number) => {
+        const value = row[colIndex] || ''
+
+        // Try to parse JSON values (for complex fields)
+        if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
+          try {
+            rowData[header] = JSON.parse(value)
+          } catch {
+            rowData[header] = value
+          }
+        } else {
+          rowData[header] = value
+        }
       })
-      return item
-    })
 
-    await auditLogger.logGoogleSheetsImport(user.id, sheetId, tabName, processedData.length)
+      // Add row index as fallback ID if no ID column exists
+      if (!rowData.id && !rowData.ID) {
+        rowData._rowIndex = index + 2 // +2 because we skip header and arrays are 0-indexed but sheets are 1-indexed
+      }
+
+      return rowData
+    })
 
     return NextResponse.json({
       success: true,
-      rows: processedData,
-      headers: headers,
+      data,
+      headers,
+      sheetName,
+      totalRows: data.length,
     })
   } catch (error) {
     console.error('Error fetching sheet data:', error)
 
-    // Provide more specific error messages
-    let errorMessage = 'Failed to fetch sheet data'
+    // Handle specific token-related errors (same pattern as HubSpot)
     if (error instanceof Error) {
-      if (error.message.includes('401') || error.message.includes('unauthorized')) {
-        errorMessage = 'Google Sheets access expired. Please reconnect your Google account.'
-      } else if (error.message.includes('403') || error.message.includes('forbidden')) {
-        errorMessage = 'Access denied. Please check sheet permissions.'
-      } else if (error.message.includes('404') || error.message.includes('not found')) {
-        errorMessage = 'Sheet or tab not found. Please check the sheet ID and tab name.'
-      } else {
-        errorMessage = `Failed to fetch sheet data: ${error.message}`
+      if (
+        error.message.includes('Google Sheets not connected') ||
+        error.message.includes('Token refresh failed')
+      ) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 401 })
       }
     }
 
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: 'An internal server error occurred.' },
+      { status: 500 }
+    )
   }
 }

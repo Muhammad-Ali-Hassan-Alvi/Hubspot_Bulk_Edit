@@ -494,7 +494,11 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
       setAvailableColumns(exportColumns)
       setSelectedColumns(exportColumns.map(c => c.key))
-      setDisplayColumns(['name', ...allTableColumns.filter(c => c !== 'name')])
+      // Show all columns, but put name first if it exists
+      const finalColumns = allTableColumns.includes('name')
+        ? ['name', ...allTableColumns.filter(c => c !== 'name')]
+        : allTableColumns
+      setDisplayColumns(finalColumns)
     } else {
       setDisplayColumns([])
     }
@@ -554,6 +558,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         userId: user.id,
         selectedItems: selectedItemsWithContentType,
         updates: updates,
+        hubspotToken: hubspotToken,
         contentType: contentType?.slug || contentType?.name,
       }
 
@@ -759,7 +764,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           changes: Object.keys(changes).length,
           successful,
           failed,
-          contentType: contentType,
+          contentType: contentType?.name || 'Unknown',
           errorMessage: errorMessage || null,
           wasSuccessful,
           updatesApplied: changes,
@@ -972,8 +977,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             status={status}
             setStatus={setStatus}
             contentType={contentType}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
             content={content}
           />
         </CardContent>

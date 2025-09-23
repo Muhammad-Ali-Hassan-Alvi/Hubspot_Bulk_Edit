@@ -47,17 +47,6 @@ export default function DashboardClientLayout({ children }: { children: React.Re
     checkAuth()
   }, [router])
 
-  if (isChecking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Checking authentication...</p>
-        </div>
-      </div>
-    )
-  }
-
   if (!isAuthenticated) {
     return null
   }
@@ -82,7 +71,11 @@ export default function DashboardClientLayout({ children }: { children: React.Re
           )}
         />
       </main>
-      <LoadingOverlay isLoading={isLoading} />
+      <LoadingOverlay
+        isLoading={isLoading || isChecking}
+        message={isChecking ? 'Checking authentication...' : 'Loading...'}
+        delayedMessage={isChecking ? 'Verifying your credentials...' : 'Just there...'}
+      />
     </div>
   )
 }

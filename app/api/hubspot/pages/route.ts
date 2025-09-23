@@ -102,15 +102,30 @@ const normalizeItem = (item: any, endpointType: string) => {
   const combinedInAppEditFields = getCombinedInAppEditFields(hubSpotContentType)
 
   exportHeaders.id = String(item.id)
-  exportHeaders.name = item.name || item.title || 'Untitled'
-  exportHeaders.slug = item.slug || ''
-  exportHeaders.url = item.absoluteUrl || item.url || ''
-  exportHeaders.htmlTitle = item.htmlTitle || ''
-  exportHeaders.metaDescription = item.metaDescription || ''
+  exportHeaders.contentType = endpointType
   exportHeaders.createdAt = new Date(item.created || item.createdAt || Date.now()).toISOString()
   exportHeaders.updatedAt = new Date(item.updated || item.updatedAt || Date.now()).toISOString()
-  exportHeaders.contentType = endpointType
-  exportHeaders.authorName = item.authorName || (item.blogAuthor ? item.blogAuthor.displayName : '')
+
+  // Only add content-type specific fields if they exist in the original data
+  if (item.name || item.title) {
+    exportHeaders.name = item.name || item.title
+  }
+  if (item.slug) {
+    exportHeaders.slug = item.slug
+  }
+  if (item.absoluteUrl || item.url) {
+    exportHeaders.url = item.absoluteUrl || item.url
+  }
+  if (item.htmlTitle) {
+    exportHeaders.htmlTitle = item.htmlTitle
+  }
+  if (item.metaDescription) {
+    exportHeaders.metaDescription = item.metaDescription
+  }
+  if (item.authorName || item.blogAuthor) {
+    exportHeaders.authorName =
+      item.authorName || (item.blogAuthor ? item.blogAuthor.displayName : '')
+  }
 
   Object.keys(item).forEach(key => {
     const value = item[key]
@@ -210,17 +225,6 @@ export async function POST(request: NextRequest) {
       const paginatedContent = allContent.slice(offset, offset + limit)
       const nextOffset = offset + limit
       const newPaging = nextOffset < total ? { next: { after: String(nextOffset) } } : null
-
-      // Debug: Log the first few items to see their IDs and content types
-      console.log(
-        'Fetched content sample:',
-        paginatedContent.slice(0, 3).map(item => ({
-          id: item.id,
-          name: item.name,
-          contentType: item.contentType,
-          url: item.url,
-        }))
-      )
 
       return NextResponse.json({
         success: true,

@@ -101,7 +101,15 @@ export default function Navbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
-              <Plug className="h-5 w-5" />
+              <Plug
+                className={`h-5 w-5 ${
+                  connectionStatus.loading
+                    ? 'text-gray-400'
+                    : connectionStatus.hubspot && connectionStatus.google
+                      ? 'text-green-500'
+                      : 'text-red-500'
+                }`}
+              />
               <span className="sr-only">Connection Status</span>
             </Button>
           </DropdownMenuTrigger>

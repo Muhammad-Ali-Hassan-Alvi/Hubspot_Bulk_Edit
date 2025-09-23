@@ -18,6 +18,7 @@ import type { User } from '@supabase/supabase-js'
 import SelectSheetAndTab from '@/components/shared/GoogleSheetsConnection/components/SelectSheetAndTab'
 import { logExportActivity } from '@/lib/audit-logger'
 import { saveUserExport } from '@/lib/export-logger'
+import { UserExportStatusEnum } from '@/lib/constants'
 import { ContentTypeT } from '@/lib/content-types'
 
 interface GSheetsExportTabProps {
@@ -110,6 +111,8 @@ export default function GSheetsExportTab({
           exportType: 'google-sheets',
           sheetId: selectedSheetId,
           tabId: _selectedTabId || undefined,
+          snapshotData: processedData, // Include the actual exported data
+          status: UserExportStatusEnum.ACTIVE, // Set status to active for new exports
         })
         // Reset sheet and tab selection after successful export
         setSelectedSheetId('')
@@ -185,13 +188,6 @@ export default function GSheetsExportTab({
     }
   }
 
-  const getSheetUrl = () => {
-    if (selectedSheetId) {
-      return `https://docs.google.com/spreadsheets/d/${selectedSheetId}`
-    }
-    return ''
-  }
-
   return (
     <TabsContent value="sheets" className="space-y-4 pt-4">
       <DynamicExportFieldsSelector
@@ -212,21 +208,6 @@ export default function GSheetsExportTab({
         />
 
         {/* Show sheet link when a sheet is selected */}
-        {selectedSheetId && (
-          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-            <span className="text-sm text-blue-800">View Sheet:</span>
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => window.open(getSheetUrl(), '_blank')}
-              className="p-0 h-auto text-blue-800 hover:text-blue-900"
-            >
-              {selectedSheetName}
-            </Button>
-            <ExternalLink className="h-3 w-3 text-blue-600" />
-          </div>
-        )}
 
         {exportSuccessUrl && (
           <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">

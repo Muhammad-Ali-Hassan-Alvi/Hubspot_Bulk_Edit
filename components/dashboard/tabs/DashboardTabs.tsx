@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 // import type { User } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
 import { useUserSettings, useUser } from '@/hooks/useUserSettings'
+import { useLayout } from '@/app/(protected)/layout-context'
 import HubSpot from './components/HubSpot'
 import ConnectCardSkeleton from '@/components/ui/skeleton/ConnectCardSkeleton'
 import GoogleSheet from './components/GoogleSheets'
-import AccountPlan from './components/AccountPlan'
+// import AccountPlan from './components/AccountPlan'
 import { ContentCountsCard } from '../reports/ContentCountsCard'
 
 export default function DashboardOverviewPage() {
@@ -17,6 +18,7 @@ export default function DashboardOverviewPage() {
   const { toast } = useToast()
   const { userSettings: reduxUserSettings, updateSettings } = useUserSettings()
   const { user } = useUser()
+  const { refreshConnectionStatus } = useLayout()
   const [userSettings, setUserSettings] = useState<any>(null)
   const [isDisconnecting, setIsDisconnecting] = useState<string | null>(null)
   const [hubspotModalOpen, setHubspotModalOpen] = useState(false)
@@ -118,10 +120,16 @@ export default function DashboardOverviewPage() {
         return prevKey + 1
       })
       router.replace('/dashboard', { scroll: false })
-      // Reset the flag after a delay
+      // Refresh data once for HubSpot connection
       setTimeout(() => {
-        hubspotOAuthSuccessRef.current = false
-      }, 2000)
+        refreshUserData()
+        // Also refresh the global connection status for navbar
+        refreshConnectionStatus()
+        // Reset the flag after a delay
+        setTimeout(() => {
+          hubspotOAuthSuccessRef.current = false
+        }, 2000)
+      }, 100)
     } else if (googleSuccess && !googleOAuthSuccessRef.current) {
       googleOAuthSuccessRef.current = true
       // Clear the success parameter immediately to prevent multiple triggers
@@ -129,6 +137,8 @@ export default function DashboardOverviewPage() {
       // Refresh data once for Google connection
       setTimeout(() => {
         refreshUserData()
+        // Also refresh the global connection status for navbar
+        refreshConnectionStatus()
         // Reset the flag after a delay
         setTimeout(() => {
           googleOAuthSuccessRef.current = false
@@ -170,6 +180,9 @@ export default function DashboardOverviewPage() {
       // Force refresh user data to update connection status
       await refreshUserData()
 
+      // Also refresh the global connection status for navbar
+      await refreshConnectionStatus()
+
       // Loading state will be cleared by refreshUserData
     } else {
       // Handle disconnection
@@ -187,6 +200,9 @@ export default function DashboardOverviewPage() {
 
       // Force refresh user data to update connection status
       await refreshUserData()
+
+      // Also refresh the global connection status for navbar
+      await refreshConnectionStatus()
 
       // Loading state will be cleared by refreshUserData
     }
@@ -244,6 +260,9 @@ export default function DashboardOverviewPage() {
       }
 
       await fetchUserData()
+
+      // Also refresh the global connection status for navbar
+      await refreshConnectionStatus()
     } catch (error) {
       toast({
         title: 'Disconnection Failed',
@@ -293,15 +312,12 @@ export default function DashboardOverviewPage() {
 
       {/* Show loading overlay when refreshing data */}
       {isRefreshingRef.current && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-background border rounded-lg p-6 flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            <span className="text-sm font-medium">Refreshing connection data...</span>
-          </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <span className="text-sm font-medium text-foreground">Refreshing connection data...</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
           <HubSpot
             isHubSpotConnected={isHubSpotConnected}
@@ -326,9 +342,9 @@ export default function DashboardOverviewPage() {
             userSettings={userSettings}
           />
         </div>
-        <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
+        {/* <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
           <AccountPlan />
-        </div>
+        </div> */}
       </div>
       <ContentCountsCard
         isCheckingConnection={isLoading}

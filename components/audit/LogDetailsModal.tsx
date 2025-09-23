@@ -3,7 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { DateDisplay } from '@/components/shared/DateDisplay'
-import { Clock, User, FileText, ArrowRight } from 'lucide-react'
+import {
+  Clock,
+  User,
+  FileText,
+  //  ArrowRight
+} from 'lucide-react'
 
 interface Change {
   pageName: string
@@ -173,7 +178,7 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
               {changes.length > 0 ? (
                 <div className="w-full">
                   {/* Table Header */}
-                  <div className="grid grid-cols-[1fr_1fr_1.5fr_auto_1.5fr] gap-x-4 px-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className="grid grid-cols-4 gap-x-4 px-4 pb-3 border-b border-gray-200 dark:border-gray-700">
                     <h4 className="font-semibold text-sm text-gray-500 dark:text-gray-400">
                       Page Name
                     </h4>
@@ -183,7 +188,7 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
                     <h4 className="font-semibold text-sm text-gray-500 dark:text-gray-400">
                       Previous Value
                     </h4>
-                    <div /> {/* Spacer for arrow column */}
+                    {/* <div /> Spacer for arrow column */}
                     <h4 className="font-semibold text-sm text-gray-500 dark:text-gray-400">
                       New Value
                     </h4>
@@ -192,10 +197,7 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
                   {/* Table Body */}
                   <div className="divide-y divide-gray-200 dark:divide-gray-700">
                     {changes.map((change: Change, index: number) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-[1fr_1fr_1.5fr_auto_1.5fr] items-center gap-x-4 px-4 py-3"
-                      >
+                      <div key={index} className="grid grid-cols-4 items-center gap-x-4 px-4 py-3">
                         {/* Page Name */}
                         <div className="min-w-0">
                           <ValueBadge value={change.pageName} variant="page" />
@@ -216,9 +218,9 @@ export default function LogDetailsModal({ isOpen, onClose, selectedLog }: LogDet
 
                         {/* Arrow */}
                         {/* BRO: FIX HERE - Changed `justify-left` to `justify-center` */}
-                        <div className="flex justify-center ">
+                        {/* <div className="flex justify-center ">
                           <ArrowRight className="h-5 w-5 text-gray-400 dark:text-gray-500 ml-[-200px]" />
-                        </div>
+                        </div> */}
 
                         {/* New Value */}
                         <div className="min-w-0">

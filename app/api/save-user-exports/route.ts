@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
+import { UserExportStatusEnum } from '@/lib/constants'
 
 export async function POST(request: NextRequest) {
   try {
-    const { contentType, exportType, sheetId, tabId } = await request.json()
+    const { contentType, exportType, sheetId, tabId, status } = await request.json()
 
     // Validate required fields
     if (!contentType || !exportType) {
@@ -18,6 +19,18 @@ export async function POST(request: NextRequest) {
     if (!['csv', 'google-sheets'].includes(exportType)) {
       return NextResponse.json(
         { success: false, error: 'exportType must be either "csv" or "sheets"' },
+        { status: 400 }
+      )
+    }
+
+    // Validate status
+    const validStatuses = Object.values(UserExportStatusEnum)
+    if (status && !validStatuses.includes(status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        },
         { status: 400 }
       )
     }
@@ -44,6 +57,7 @@ export async function POST(request: NextRequest) {
       export_type: exportType,
       sheet_id: sheetId,
       tab_id: tabId,
+      status: status || UserExportStatusEnum.ACTIVE,
     }
 
     // Add sheet and tab info for Google Sheets exports
