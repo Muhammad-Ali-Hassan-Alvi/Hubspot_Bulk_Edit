@@ -940,8 +940,25 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     setSelectedRows([])
   }
 
-  const handleSelectAll = (checked: boolean) => {
+  // Select all records currently displayed in the table (50 records)
+  const handleSelectAllTable = (checked: boolean) => {
     setSelectedRows(checked ? filteredContent.map(p => p.id) : [])
+  }
+
+  // Select all records from Redux (all 101 records)
+  const handleSelectAllRedux = (checked: boolean) => {
+    if (checked) {
+      // If we have cached data for this content type, select all records from Redux
+      if (contentType?.slug && isContentTypeComplete(contentType.slug)) {
+        const allStoredRecords = getStoredRecords(contentType.slug)
+        setSelectedRows(allStoredRecords.map(p => p.id))
+      } else {
+        // Fallback to current displayed content
+        setSelectedRows(filteredContent.map(p => p.id))
+      }
+    } else {
+      setSelectedRows([])
+    }
   }
 
   const handleSelectRow = (id: string) => {
@@ -1150,7 +1167,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
           setItemsPerPage={setItemsPerPage}
           isExportModalOpen={isExportModalOpen}
           onExportModalOpenChange={handleModalOpenChange}
-          onSelectAll={handleSelectAll}
+          onSelectAll={handleSelectAllRedux}
           currentContentTypeLabel={
             currentSearchTerm ? 'Search Results' : currentContentTypeLabel.toString()
           }
@@ -1217,7 +1234,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         loadingMore={loadingMore}
         hasMore={hasMore}
         currentContentTypeLabel={currentContentTypeLabel.toString()}
-        onSelectAll={handleSelectAll}
+        onSelectAll={handleSelectAllTable}
         onSelectRow={handleSelectRow}
         onLoadMore={loadMore}
         onPagination={handlePagination}
