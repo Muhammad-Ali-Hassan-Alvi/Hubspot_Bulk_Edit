@@ -20,22 +20,22 @@ import { DateDisplay } from '@/components/shared/DateDisplay'
 <DateDisplay date="2024-01-15" format="relative" />
 
 // With custom styling
-<DateDisplay 
-  date="2024-01-15" 
-  className="text-sm text-muted-foreground" 
+<DateDisplay
+  date="2024-01-15"
+  className="text-sm text-muted-foreground"
   fallback="No date available"
 />
 ```
 
 ## Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `date` | `string \| Date \| number \| null \| undefined` | - | The date to display |
-| `format` | `'full' \| 'short' \| 'time' \| 'relative'` | `'full'` | Format type |
-| `className` | `string` | - | Additional CSS classes |
-| `fallback` | `string` | `'N/A'` | Text to show when date is invalid |
-| `showTime` | `boolean` | `false` | Whether to show time with date |
+| Prop        | Type                                            | Default  | Description                       |
+| ----------- | ----------------------------------------------- | -------- | --------------------------------- |
+| `date`      | `string \| Date \| number \| null \| undefined` | -        | The date to display               |
+| `format`    | `'full' \| 'short' \| 'time' \| 'relative'`     | `'full'` | Format type                       |
+| `className` | `string`                                        | -        | Additional CSS classes            |
+| `fallback`  | `string`                                        | `'N/A'`  | Text to show when date is invalid |
+| `showTime`  | `boolean`                                       | `false`  | Whether to show time with date    |
 
 ## Format Types
 
@@ -57,11 +57,13 @@ const formattedDate = formatDate('2024-01-15', { format: 'short' })
 ## Migration Guide
 
 Replace all instances of:
+
 - `new Date(date).toLocaleDateString()`
 - `new Date(date).toLocaleString()`
 - `new Date(date).toLocaleTimeString()`
 
 With:
+
 - `<DateDisplay date={date} format="short" />`
 - `<DateDisplay date={date} format="time" showTime={true} />`
 - `<DateDisplay date={date} format="time" showTime={true} />`

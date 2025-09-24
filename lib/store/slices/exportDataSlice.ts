@@ -39,31 +39,41 @@ const initialState: ExportDataState = {
 }
 
 // Async thunk to fetch content counts
-export const fetchContentCounts = createAsyncThunk(
-  'exportData/fetchContentCounts',
-  async () => {
-    const response = await fetch('/api/hubspot/content-counts', {
-      method: 'POST',
-    })
-    
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to fetch content counts')
-    }
-    
-    const data = await response.json()
-    return data.counts || []
+export const fetchContentCounts = createAsyncThunk('exportData/fetchContentCounts', async () => {
+  const response = await fetch('/api/hubspot/content-counts', {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || 'Failed to fetch content counts')
   }
-)
+
+  const data = await response.json()
+  return data.counts || []
+})
 
 // Async thunk to fetch all records for a content type
 export const fetchAllRecordsForContentType = createAsyncThunk(
   'exportData/fetchAllRecordsForContentType',
-  async ({ contentType, totalCount }: { contentType: string; totalCount: number }) => {
+  async ({ contentType, totalCount, forceRefresh = false }: { contentType: string; totalCount: number; forceRefresh?: boolean }, { getState }) => {
+    const state = getState() as { exportData: ExportDataState }
+    const existingData = state.exportData.contentTypeData[contentType]
+
+    // If data already exists and is complete, and we're not forcing a refresh, return existing data
+    if (!forceRefresh && existingData && existingData.isComplete && existingData.records.length > 0) {
+      return {
+        contentType,
+        records: existingData.records,
+        totalCount: existingData.totalCount,
+        fromCache: true,
+      }
+    }
+
     const allRecords: ExportRecord[] = []
     const limit = 100 // HubSpot API limit
     let after: string | null = null
-    
+
     // Fetch all pages using proper cursor-based pagination
     while (true) {
       const response = await fetch('/api/hubspot/pages', {
@@ -75,19 +85,19 @@ export const fetchAllRecordsForContentType = createAsyncThunk(
           after,
         }),
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to fetch records')
       }
-      
+
       const data = await response.json()
       if (!data.success || !data.content) {
         break
       }
-      
+
       allRecords.push(...data.content)
-      
+
       // Check if there are more pages using the paging.next.after cursor
       if (data.paging?.next?.after) {
         after = data.paging.next.after
@@ -95,11 +105,12 @@ export const fetchAllRecordsForContentType = createAsyncThunk(
         break // No more pages
       }
     }
-    
+
     return {
       contentType,
       records: allRecords,
       totalCount,
+      fromCache: false,
     }
   }
 )
@@ -112,14 +123,17 @@ const exportDataSlice = createSlice({
       state.contentCounts = action.payload
       state.lastUpdated = new Date()
     },
-    setContentTypeData: (state, action: PayloadAction<{ contentType: string; data: ContentTypeData }>) => {
+    setContentTypeData: (
+      state,
+      action: PayloadAction<{ contentType: string; data: ContentTypeData }>
+    ) => {
       const { contentType, data } = action.payload
       state.contentTypeData[contentType] = data
     },
     clearContentTypeData: (state, action: PayloadAction<string>) => {
       delete state.contentTypeData[action.payload]
     },
-    clearAllData: (state) => {
+    clearAllData: state => {
       state.contentTypeData = {}
       state.contentCounts = []
       state.lastUpdated = null
@@ -134,7 +148,7 @@ const exportDataSlice = createSlice({
   extraReducers: builder => {
     builder
       // Fetch content counts
-      .addCase(fetchContentCounts.pending, (state) => {
+      .addCase(fetchContentCounts.pending, state => {
         state.loading = true
         state.error = null
       })
@@ -148,7 +162,7 @@ const exportDataSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch content counts'
       })
       // Fetch all records for content type
-      .addCase(fetchAllRecordsForContentType.pending, (state) => {
+      .addCase(fetchAllRecordsForContentType.pending, state => {
         state.loading = true
         state.error = null
       })

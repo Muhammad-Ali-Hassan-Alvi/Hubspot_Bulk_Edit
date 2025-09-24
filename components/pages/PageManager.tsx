@@ -55,7 +55,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
   // Fetch dynamic content types
   const { contentTypes } = useContentTypes()
-  
+
   // Export data management
   const {
     loadContentCounts,
@@ -103,7 +103,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   const [currentBatch, setCurrentBatch] = useState(1)
   const [maxBatches] = useState(5) // Show 5 batches (500 records) before pagination
   const [, setHasMoreRecords] = useState(false) // Track if API has more records
-  
+
   // New functionality state
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [contentCountsLoaded, setContentCountsLoaded] = useState(false)
@@ -325,11 +325,30 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     setDateRange([null, null])
     setCurrentBatch(1)
     setHasMoreRecords(false)
-    
-    // Load all records for the new content type if counts are available
+
+    // Check if data is already cached for this content type
     if (contentCountsLoaded && newlySelectedContentType?.slug) {
+      const storedRecords = getStoredRecords(newlySelectedContentType.slug)
+      const isComplete = isContentTypeComplete(newlySelectedContentType.slug)
+      
+      if (storedRecords.length > 0 && isComplete) {
+        // Use cached data - no API call needed
+        const paginatedData = getPaginatedRecords(newlySelectedContentType.slug, 1, 500)
+        setContent(paginatedData.records)
+        setTotalItems(paginatedData.totalRecords)
+        setCurrentPage(1)
+        setLastUpdated(new Date())
+        setCurrentContentTypeSlug(newlySelectedContentType.slug)
+        return
+      }
+      
+      // If no cached data, fetch from API
       try {
-        await loadAllRecordsForContentType(newlySelectedContentType.slug, getContentCount(newlySelectedContentType.name))
+        await loadAllRecordsForContentType(
+          newlySelectedContentType.slug,
+          getContentCount(newlySelectedContentType.name),
+          false // Don't force refresh - use cache if available
+        )
         setCurrentContentTypeSlug(newlySelectedContentType.slug)
       } catch (error) {
         console.error('Failed to load records for new content type:', error)
@@ -355,17 +374,19 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     if (hubspotToken && contentType && connectionStatus.hubspot) {
       // Use new functionality if available, otherwise fallback to old method
       if (contentCountsLoaded && contentType.slug) {
-        // Check if we have stored records for this content type
+        // Check if we have stored records for this content type and they are complete
         const storedRecords = getStoredRecords(contentType.slug)
-        if (storedRecords.length > 0) {
-          // Use stored records with pagination
+        const isComplete = isContentTypeComplete(contentType.slug)
+        
+        if (storedRecords.length > 0 && isComplete) {
+          // Use stored records with pagination - no API call needed
           const paginatedData = getPaginatedRecords(contentType.slug, 1, 500)
           setContent(paginatedData.records)
           setTotalItems(paginatedData.totalRecords)
           setCurrentPage(1)
           setLastUpdated(new Date())
         } else {
-          // Load all records for this content type
+          // Load all records for this content type from API
           loadAllRecordsForCurrentContentType()
         }
       } else {
@@ -376,7 +397,18 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     if (contentTypes.length > 0 && !contentType) {
       setContentType(contentTypes.find(ct => ct.slug === 'landing-pages'))
     }
-  }, [hubspotToken, contentType, contentTypes, connectionStatus.hubspot, contentCountsLoaded, getStoredRecords, getPaginatedRecords, loadAllRecordsForCurrentContentType, loadContent])
+  }, [
+    hubspotToken,
+    contentType,
+    contentTypes,
+    connectionStatus.hubspot,
+    contentCountsLoaded,
+    getStoredRecords,
+    isContentTypeComplete,
+    getPaginatedRecords,
+    loadAllRecordsForCurrentContentType,
+    loadContent,
+  ])
 
   // Update the shared header last-updated span when data loads
   useEffect(() => {
@@ -597,9 +629,13 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   const refreshCurrentPage = async () => {
     setRefreshing(true)
     try {
-      // Use new functionality: load all records for current content type
+      // Use new functionality: load all records for current content type with force refresh
       if (contentType?.slug) {
-        await loadAllRecordsForCurrentContentType()
+        const totalCount = getContentCount(contentType.name)
+        if (totalCount > 0) {
+          await loadAllRecordsForContentType(contentType.slug, totalCount, true) // Force refresh
+          setCurrentContentTypeSlug(contentType.slug)
+        }
       } else {
         // Fallback to old method
         await loadContent(currentPage, cursors, true)
@@ -624,8 +660,8 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   }
 
   const handlePagination = (newPage: number) => {
-    // Use new pagination system if we have stored records
-    if (contentType?.slug && getStoredRecords(contentType.slug).length > 0) {
+    // Use new pagination system if we have stored records and they are complete
+    if (contentType?.slug && getStoredRecords(contentType.slug).length > 0 && isContentTypeComplete(contentType.slug)) {
       const paginatedData = getPaginatedRecords(contentType.slug, newPage, 500)
       setContent(paginatedData.records)
       setCurrentPage(newPage)
@@ -984,15 +1020,15 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             {connectionStatus.loading
               ? 'Checking Connections...'
               : exportDataLoading
-              ? 'Loading Content Counts...'
-              : `Loading ${currentContentTypeLabel}...`}
+                ? 'Loading Content Counts...'
+                : `Loading ${currentContentTypeLabel}...`}
           </CardTitle>
           <CardDescription>
             {connectionStatus.loading
               ? 'Verifying your HubSpot and Google Sheets connections.'
               : exportDataLoading
-              ? 'Fetching content counts and loading all records from HubSpot.'
-              : 'Fetching the latest data from HubSpot.'}
+                ? 'Fetching content counts and loading all records from HubSpot.'
+                : 'Fetching the latest data from HubSpot.'}
           </CardDescription>
         </CardHeader>
         <CardContent>

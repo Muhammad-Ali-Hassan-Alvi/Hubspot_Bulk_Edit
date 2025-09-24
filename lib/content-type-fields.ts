@@ -57,7 +57,7 @@ export const CONTENT_TYPE_FIELD_AVAILABILITY: ContentTypeFieldAvailability = {
     routePrefix: false,
     redirectStyle: false,
   },
-  'blogs': {
+  blogs: {
     publishDate: false,
     state: false,
     language: true,
@@ -73,7 +73,7 @@ export const CONTENT_TYPE_FIELD_AVAILABILITY: ContentTypeFieldAvailability = {
     routePrefix: false,
     redirectStyle: false,
   },
-  'tags': {
+  tags: {
     publishDate: false,
     state: false,
     language: true,
@@ -89,7 +89,7 @@ export const CONTENT_TYPE_FIELD_AVAILABILITY: ContentTypeFieldAvailability = {
     routePrefix: false,
     redirectStyle: false,
   },
-  'authors': {
+  authors: {
     publishDate: false,
     state: false,
     language: false,
@@ -137,7 +137,7 @@ export const CONTENT_TYPE_FIELD_AVAILABILITY: ContentTypeFieldAvailability = {
     routePrefix: false,
     redirectStyle: false,
   },
-  'category': {
+  category: {
     publishDate: false,
     state: false,
     language: false,
@@ -158,16 +158,13 @@ export const CONTENT_TYPE_FIELD_AVAILABILITY: ContentTypeFieldAvailability = {
 /**
  * Check if a field is available for filtering for a specific content type
  */
-export function isFieldAvailableForContentType(
-  contentType: string,
-  fieldName: string
-): boolean {
+export function isFieldAvailableForContentType(contentType: string, fieldName: string): boolean {
   const contentTypeData = CONTENT_TYPE_FIELD_AVAILABILITY[contentType]
   if (!contentTypeData) {
     // If content type not found, default to true for common fields
     return ['name', 'slug', 'language'].includes(fieldName)
   }
-  
+
   return contentTypeData[fieldName] === true
 }
 
@@ -180,7 +177,7 @@ export function getAvailableFilterFields(contentType: string): string[] {
     // Default fields if content type not found
     return ['name', 'slug', 'language']
   }
-  
+
   return Object.entries(contentTypeData)
     .filter(([_, isAvailable]) => isAvailable)
     .map(([fieldName, _]) => fieldName)

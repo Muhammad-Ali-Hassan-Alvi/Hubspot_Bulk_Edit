@@ -14,19 +14,19 @@ export const store = configureStore({
       serializableCheck: {
         // Ignore these action types
         ignoredActions: [
-          'userSettings/setUserSettings', 
+          'userSettings/setUserSettings',
           'userSettings/updateUserSettings',
           'exportData/setContentTypeData',
-          'exportData/fetchAllRecordsForContentType/fulfilled'
+          'exportData/fetchAllRecordsForContentType/fulfilled',
         ],
         // Ignore these field paths in all actions
         ignoredActionPaths: ['payload.created_at', 'payload.updated_at', 'payload.lastFetched'],
         // Ignore these paths in the state
         ignoredPaths: [
-          'userSettings.data.created_at', 
+          'userSettings.data.created_at',
           'userSettings.data.updated_at',
           'exportData.contentTypeData.*.lastFetched',
-          'exportData.lastUpdated'
+          'exportData.lastUpdated',
         ],
       },
     }),
