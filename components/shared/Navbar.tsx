@@ -22,7 +22,7 @@ import {
 import { useLayout } from '@/app/(protected)/layout-context'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useUserSettings } from '@/hooks/useUserSettings'
+import { useUserSettings, useUser } from '@/hooks/useUserSettings'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import ComingSoonBadge from '../ui/coming-soon-badge'
@@ -51,6 +51,7 @@ export default function Navbar() {
   // const pageTitle = getTitleFromPathname(pathname)
   const { setTheme } = useTheme()
   const { userSettings: _userSettings } = useUserSettings()
+  const { user } = useUser()
 
   // **THE FIX IS HERE**: Rename `isSidebarCollapsed` to `isCollapsed` for local use
   const {
@@ -67,6 +68,27 @@ export default function Navbar() {
   const StatusIndicator = ({ connected }: { connected: boolean }) => (
     <span className={`mr-2 h-2 w-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
   )
+
+  // Function to generate user initials
+  const getUserInitials = () => {
+    if (!user?.user_metadata) return 'U'
+
+    const { first_name, last_name, full_name } = user.user_metadata
+
+    if (first_name && last_name) {
+      return `${first_name.charAt(0).toUpperCase()}${last_name.charAt(0).toUpperCase()}`
+    }
+
+    if (full_name) {
+      const parts = full_name.trim().split(' ')
+      if (parts.length >= 2) {
+        return `${parts[0].charAt(0).toUpperCase()}${parts[parts.length - 1].charAt(0).toUpperCase()}`
+      }
+      return parts[0].charAt(0).toUpperCase()
+    }
+
+    return 'U'
+  }
 
   return (
     <header className="sticky top-0 z-[50] flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:px-8">
@@ -159,7 +181,9 @@ export default function Navbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-9 w-9 relative cursor-pointer">
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+                <div className="h-full w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center font-semibold text-sm">
+                  {getUserInitials()}
+                </div>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

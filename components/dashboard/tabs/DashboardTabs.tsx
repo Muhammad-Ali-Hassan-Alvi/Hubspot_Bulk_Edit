@@ -283,10 +283,10 @@ export default function DashboardOverviewPage() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Your Hubspot Management Partner</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
             <ConnectCardSkeleton />
-          </div>
+          </div> */}
           <div className="bg-background p-6 rounded-lg border flex flex-col justify-between">
             <ConnectCardSkeleton />
           </div>

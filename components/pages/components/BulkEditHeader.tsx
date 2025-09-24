@@ -443,7 +443,7 @@ export default function BulkEditHeader({
       case 'datetime':
       case 'date':
         return (
-          <div className="relative z-[30]">
+          <div className="relative z-[35]">
             <DatePicker
               selected={updates[field.key] ? new Date(updates[field.key]) : null}
               onChange={(date: Date | null) => {

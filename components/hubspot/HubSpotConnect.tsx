@@ -291,7 +291,7 @@ export default function HubSpotConnect({
             {!isConnected ? (
               'Connect your HubSpot account using a Private App Token (recommended) or OAuth.'
             ) : (
-              <>Ready to manage and sync your HubSpot content for bulk editin and more.</>
+              <>Ready to manage and sync your HubSpot content for bulk editing and more.</>
             )}
           </CardDescription>
         </CardHeader>

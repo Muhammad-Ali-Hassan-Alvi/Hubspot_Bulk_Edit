@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, CheckCircle, FileSpreadsheet, Zap } from 'lucide-react'
-import Link from 'next/link'
+// import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 
 interface GoogleSheetsConnectProps {
@@ -154,13 +154,7 @@ export default function GoogleSheetsConnect({
             {!isConnected ? (
               'Connect your Google Sheet account using OAuth.'
             ) : (
-              <>
-                Export your HubSpot content to Google Sheets for{' '}
-                <Link href="/backup" className="text-blue-600 hover:text-blue-800 underline">
-                  bulk editing
-                </Link>{' '}
-                and much more
-              </>
+              <>Export your HubSpot content to Google Sheets for bulk editing and much more</>
             )}
           </CardDescription>
         </CardHeader>

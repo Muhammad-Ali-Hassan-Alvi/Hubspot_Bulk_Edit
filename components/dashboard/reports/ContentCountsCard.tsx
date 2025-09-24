@@ -240,7 +240,8 @@ export const ContentCountsCard = ({
         </CardContent>
         {disclaimer && (
           <CardFooter className="p-3 text-xs text-muted-foreground border-t bg-background">
-            <strong>Note:</strong> {disclaimer}
+            <span className="font-bold pr-1">Note:</span>
+            {disclaimer}
           </CardFooter>
         )}
       </Card>
