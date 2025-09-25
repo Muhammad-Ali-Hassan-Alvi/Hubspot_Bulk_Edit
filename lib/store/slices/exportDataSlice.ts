@@ -56,12 +56,24 @@ export const fetchContentCounts = createAsyncThunk('exportData/fetchContentCount
 // Async thunk to fetch all records for a content type
 export const fetchAllRecordsForContentType = createAsyncThunk(
   'exportData/fetchAllRecordsForContentType',
-  async ({ contentType, totalCount, forceRefresh = false }: { contentType: string; totalCount: number; forceRefresh?: boolean }, { getState }) => {
+  async (
+    {
+      contentType,
+      totalCount,
+      forceRefresh = false,
+    }: { contentType: string; totalCount: number; forceRefresh?: boolean },
+    { getState }
+  ) => {
     const state = getState() as { exportData: ExportDataState }
     const existingData = state.exportData.contentTypeData[contentType]
 
     // If data already exists and is complete, and we're not forcing a refresh, return existing data
-    if (!forceRefresh && existingData && existingData.isComplete && existingData.records.length > 0) {
+    if (
+      !forceRefresh &&
+      existingData &&
+      existingData.isComplete &&
+      existingData.records.length > 0
+    ) {
       return {
         contentType,
         records: existingData.records,
@@ -76,7 +88,7 @@ export const fetchAllRecordsForContentType = createAsyncThunk(
 
     // Fetch all pages using proper cursor-based pagination
     while (true) {
-      const response = await fetch('/api/hubspot/pages', {
+      const response: Response = await fetch('/api/hubspot/pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -87,11 +99,15 @@ export const fetchAllRecordsForContentType = createAsyncThunk(
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData: { error?: string } = await response.json()
         throw new Error(errorData.error || 'Failed to fetch records')
       }
 
-      const data = await response.json()
+      const data: {
+        success: boolean
+        content?: ExportRecord[]
+        paging?: { next?: { after: string } }
+      } = await response.json()
       if (!data.success || !data.content) {
         break
       }

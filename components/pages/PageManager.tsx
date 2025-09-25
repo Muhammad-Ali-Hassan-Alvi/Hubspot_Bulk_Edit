@@ -65,7 +65,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     isContentTypeComplete,
     getPaginatedRecords,
     loading: exportDataLoading,
-    error: exportDataError,
   } = useExportData()
   const [content, setContent] = useState<HubSpotContent[]>([])
   const [loading, setLoading] = useState(false)
@@ -107,7 +106,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
   // New functionality state
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [contentCountsLoaded, setContentCountsLoaded] = useState(false)
-  const [currentContentTypeSlug, setCurrentContentTypeSlug] = useState<string | null>(null)
+  const [, setCurrentContentTypeSlug] = useState<string | null>(null)
 
   // Search state
   const [isSearching, setIsSearching] = useState(false)
@@ -140,27 +139,6 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     setSearchTotal(0)
     setCurrentSearchTerm('')
     setSelectedRows([])
-  }, [])
-
-  // Fetch content counts from the API (legacy function - keeping for compatibility)
-  const fetchContentCounts = useCallback(async () => {
-    try {
-      const response = await fetch('/api/hubspot/content-counts', {
-        method: 'POST',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.counts) {
-          const countsMap: { [key: string]: number } = {}
-          data.counts.forEach((item: any) => {
-            countsMap[item.type] = item.total
-          })
-          setContentCounts(countsMap)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch content counts:', error)
-    }
   }, [])
 
   // New functionality: Load content counts and fetch all records
@@ -330,7 +308,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     if (contentCountsLoaded && newlySelectedContentType?.slug) {
       const storedRecords = getStoredRecords(newlySelectedContentType.slug)
       const isComplete = isContentTypeComplete(newlySelectedContentType.slug)
-      
+
       if (storedRecords.length > 0 && isComplete) {
         // Use cached data - no API call needed
         const paginatedData = getPaginatedRecords(newlySelectedContentType.slug, 1, 500)
@@ -341,7 +319,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         setCurrentContentTypeSlug(newlySelectedContentType.slug)
         return
       }
-      
+
       // If no cached data, fetch from API
       try {
         await loadAllRecordsForContentType(
@@ -377,7 +355,7 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         // Check if we have stored records for this content type and they are complete
         const storedRecords = getStoredRecords(contentType.slug)
         const isComplete = isContentTypeComplete(contentType.slug)
-        
+
         if (storedRecords.length > 0 && isComplete) {
           // Use stored records with pagination - no API call needed
           const paginatedData = getPaginatedRecords(contentType.slug, 1, 500)
@@ -420,8 +398,8 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
   // Fetch content counts when component mounts and when content type changes
   useEffect(() => {
-    fetchContentCounts()
-  }, [fetchContentCounts])
+    loadContentCounts()
+  }, [loadContentCounts])
 
   const filteredContent = useMemo(() => {
     // If we have search results, use those instead of regular content
@@ -464,9 +442,16 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         (() => {
           const fieldValue = dataSource.publishDate
           if (!fieldValue) return true
-          const fieldDate = new Date(fieldValue).toISOString().split('T')[0]
-          const filterDate = publishDateFilter
-          return fieldDate === filterDate
+          
+          // Create date objects for comparison to handle timezone issues
+          const fieldDate = new Date(fieldValue)
+          const filterDate = new Date(publishDateFilter)
+          
+          // Compare only the date part (year, month, day) ignoring time
+          const fieldDateOnly = new Date(fieldDate.getFullYear(), fieldDate.getMonth(), fieldDate.getDate())
+          const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate())
+          
+          return fieldDateOnly.getTime() === filterDateOnly.getTime()
         })()
 
       // Handle created at filter
@@ -490,9 +475,15 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
           // Handle date fields specially
           if (fieldName === 'publishDate' && filterValue) {
-            const fieldDate = new Date(fieldValue).toISOString().split('T')[0]
-            const filterDate = filterValue
-            return fieldDate === filterDate
+            // Create date objects for comparison to handle timezone issues
+            const fieldDate = new Date(fieldValue)
+            const filterDate = new Date(filterValue)
+            
+            // Compare only the date part (year, month, day) ignoring time
+            const fieldDateOnly = new Date(fieldDate.getFullYear(), fieldDate.getMonth(), fieldDate.getDate())
+            const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate())
+            
+            return fieldDateOnly.getTime() === filterDateOnly.getTime()
           }
 
           return String(fieldValue).toLowerCase().includes(filterValue.toLowerCase())
@@ -661,7 +652,11 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
 
   const handlePagination = (newPage: number) => {
     // Use new pagination system if we have stored records and they are complete
-    if (contentType?.slug && getStoredRecords(contentType.slug).length > 0 && isContentTypeComplete(contentType.slug)) {
+    if (
+      contentType?.slug &&
+      getStoredRecords(contentType.slug).length > 0 &&
+      isContentTypeComplete(contentType.slug)
+    ) {
       const paginatedData = getPaginatedRecords(contentType.slug, newPage, 500)
       setContent(paginatedData.records)
       setCurrentPage(newPage)
@@ -940,12 +935,10 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
     setSelectedRows([])
   }
 
-  // Select all records currently displayed in the table (50 records)
   const handleSelectAllTable = (checked: boolean) => {
     setSelectedRows(checked ? filteredContent.map(p => p.id) : [])
   }
 
-  // Select all records from Redux (all 101 records)
   const handleSelectAllRedux = (checked: boolean) => {
     if (checked) {
       // If we have cached data for this content type, select all records from Redux

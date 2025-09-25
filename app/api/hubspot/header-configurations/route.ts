@@ -62,6 +62,7 @@ export async function GET() {
         filters: baseConfig?.filters ?? false,
         read_only: baseConfig?.read_only ?? false,
         in_app_edit: baseConfig?.in_app_edit ?? false,
+        prefetch_options: baseConfig?.prefetch_options ?? false,
         lastUpdated: baseConfig?.updated_at ?? baseConfig?.created_at ?? null,
         updatedBy: baseConfig?.updated_by ?? null,
         contentTypes: ctMap,
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
         filters,
         read_only,
         in_app_edit,
+        prefetch_options,
         contentTypes: contentTypeFlags,
       } = row
 
@@ -169,6 +171,7 @@ export async function POST(request: NextRequest) {
             filters: filters,
             read_only: read_only,
             in_app_edit: in_app_edit,
+            prefetch_options: prefetch_options,
             updated_at: new Date().toISOString(),
             updated_by: 1, // TODO: Get actual user ID from auth
           }
@@ -180,7 +183,8 @@ export async function POST(request: NextRequest) {
               existingConfig.category !== category ||
               existingConfig.filters !== filters ||
               existingConfig.read_only !== read_only ||
-              existingConfig.in_app_edit !== in_app_edit
+              existingConfig.in_app_edit !== in_app_edit ||
+              existingConfig.prefetch_options !== prefetch_options
 
             console.log(`Existing config for header ${headerId}, content type ${contentTypeId}:`, {
               existing: {
@@ -189,6 +193,7 @@ export async function POST(request: NextRequest) {
                 filters: existingConfig.filters,
                 read_only: existingConfig.read_only,
                 in_app_edit: existingConfig.in_app_edit,
+                prefetch_options: existingConfig.prefetch_options,
               },
               incoming: {
                 headerType,
@@ -196,6 +201,7 @@ export async function POST(request: NextRequest) {
                 filters,
                 read_only,
                 in_app_edit,
+                prefetch_options,
               },
               hasChanges,
             })

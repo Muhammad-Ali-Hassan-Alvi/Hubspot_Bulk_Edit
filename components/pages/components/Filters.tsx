@@ -326,8 +326,18 @@ export default function Filters({
     if (tempFilterValue && tempFilterValue.trim() !== '' && tempFilterValue !== 'all') {
       return false // Enable the button
     }
+    
+    // For date fields, check if date picker has a value
+    // Note: The date picker is always visible, so we don't need to check selectedFilterField
+    if (publishDateValue) {
+      return false // Enable the button
+    }
+    if (archivedAtValue) {
+      return false // Enable the button
+    }
+    
     return true // Disable the button
-  }, [tempFilterValue, selectedFilterField])
+  }, [tempFilterValue, publishDateValue, archivedAtValue])
 
   // ... (handleApplyFilters, handleClearFilters, etc. remain the same) ...
   const formatFieldName = (fieldName: string) => {
@@ -405,7 +415,7 @@ export default function Filters({
 
     // Handle separate date picker values
     if (publishDateValue) {
-      setPublishDateFilter(publishDateValue.toISOString())
+      setPublishDateFilter(publishDateValue.toISOString().split('T')[0])
     }
     if (archivedAtValue) {
       setDynamicFilters((prev: { [key: string]: string }) => ({

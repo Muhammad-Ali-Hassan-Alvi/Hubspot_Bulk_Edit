@@ -1,11 +1,9 @@
 import { useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { RootState } from '@/lib/store'
+import { RootState, AppDispatch } from '@/lib/store'
 import {
   fetchContentCounts,
   fetchAllRecordsForContentType,
-  setContentCounts,
-  setContentTypeData,
   clearContentTypeData,
   clearAllData,
   setLoading,
@@ -13,24 +11,36 @@ import {
 } from '@/lib/store/slices/exportDataSlice'
 
 export const useExportData = () => {
-  const dispatch = useDispatch()
+  const dispatch = useDispatch<AppDispatch>()
   const exportData = useSelector((state: RootState) => state.exportData)
 
   // Fetch content counts
-  const loadContentCounts = useCallback(async () => {
-    try {
-      await dispatch(fetchContentCounts()).unwrap()
-    } catch (error) {
-      console.error('Failed to fetch content counts:', error)
-      throw error
-    }
-  }, [dispatch])
+  const loadContentCounts = useCallback(
+    async (forceRefresh = false) => {
+      // Check if we already have data and it's not a forced refresh
+      if (!forceRefresh && exportData.contentCounts.length > 0 && exportData.lastUpdated) {
+        console.log('✅ useExportData: Using cached content counts')
+        return
+      }
+
+      try {
+        console.log('🔄 useExportData: Fetching content counts from API')
+        await dispatch(fetchContentCounts()).unwrap()
+      } catch (error) {
+        console.error('Failed to fetch content counts:', error)
+        throw error
+      }
+    },
+    [dispatch, exportData.contentCounts, exportData.lastUpdated]
+  )
 
   // Fetch all records for a specific content type
   const loadAllRecordsForContentType = useCallback(
     async (contentType: string, totalCount: number, forceRefresh: boolean = false) => {
       try {
-        const result = await dispatch(fetchAllRecordsForContentType({ contentType, totalCount, forceRefresh })).unwrap()
+        const result = await dispatch(
+          fetchAllRecordsForContentType({ contentType, totalCount, forceRefresh })
+        ).unwrap()
         return result
       } catch (error) {
         console.error(`Failed to fetch records for ${contentType}:`, error)

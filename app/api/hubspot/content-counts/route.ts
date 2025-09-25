@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
+import {
+  INCLUDE_ARCHIVED_CONTENT,
+  getArchivedContentDisclaimer,
+} from '@/lib/constants/archived-content'
 
 interface StatusCounts {
   published: number | null
@@ -13,7 +17,7 @@ async function fetchStatusCounts(
   headers: HeadersInit,
   hasStatus: boolean = false
 ): Promise<StatusCounts> {
-  const baseUrlWithArchiveFilter = `${baseUrl}?archived=false`
+  const baseUrlWithArchiveFilter = INCLUDE_ARCHIVED_CONTENT ? baseUrl : `${baseUrl}?archived=false`
 
   try {
     if (hasStatus) {
@@ -59,13 +63,12 @@ async function fetchStatusCounts(
 
 async function fetchUniqueBlogsCount(headers: HeadersInit): Promise<number> {
   try {
-    const response = await fetch(
-      'https://api.hubapi.com/cms/v3/blogs/posts?limit=100&archived=false',
-      {
-        headers,
-        next: { revalidate: 0 },
-      }
-    )
+    const baseUrl = 'https://api.hubapi.com/cms/v3/blogs/posts?limit=100'
+    const url = INCLUDE_ARCHIVED_CONTENT ? baseUrl : `${baseUrl}&archived=false`
+    const response = await fetch(url, {
+      headers,
+      next: { revalidate: 0 },
+    })
 
     if (!response.ok) return 0
     const data = await response.json()
@@ -122,7 +125,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      disclaimer: 'All counts exclude archived content.',
+      disclaimer: getArchivedContentDisclaimer(),
       counts,
     })
   } catch (error) {

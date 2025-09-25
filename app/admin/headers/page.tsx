@@ -23,6 +23,7 @@ interface HeaderConfig {
   filters: boolean
   read_only: boolean
   in_app_edit: boolean
+  prefetch_options: boolean
   lastUpdated: string | null
   updatedBy?: number
   contentTypes: {

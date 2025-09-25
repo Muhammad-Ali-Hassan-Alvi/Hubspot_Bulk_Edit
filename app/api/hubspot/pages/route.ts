@@ -3,6 +3,7 @@ import { isHeaderReadOnly, getHeaderInfo } from '@/lib/utils'
 import { getCombinedInAppEditFields } from '@/lib/utils'
 import { getAuthenticatedUser } from '@/lib/store/serverUtils'
 import { getHubSpotAuthHeaders } from '@/lib/hubspot-auth'
+import { INCLUDE_ARCHIVED_CONTENT } from '@/lib/constants/archived-content'
 
 // Cache for content types
 const contentTypesCache = new Map<string, { data: any; timestamp: number }>()
@@ -182,6 +183,9 @@ async function fetchAllFromEndpoint(
   do {
     const requestUrl = new URL(originalUrl.toString())
     requestUrl.searchParams.set('limit', '100')
+    if (!INCLUDE_ARCHIVED_CONTENT) {
+      requestUrl.searchParams.set('archived', 'false')
+    }
     if (after) {
       requestUrl.searchParams.set('after', after)
     }
@@ -241,6 +245,9 @@ export async function POST(request: NextRequest) {
 
     const url = new URL(endpoint.url)
     url.searchParams.set('limit', String(limit))
+    if (!INCLUDE_ARCHIVED_CONTENT) {
+      url.searchParams.set('archived', 'false')
+    }
     if (after) {
       url.searchParams.set('after', String(after))
     }

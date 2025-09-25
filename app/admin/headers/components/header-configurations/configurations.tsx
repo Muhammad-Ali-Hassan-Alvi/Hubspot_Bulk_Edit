@@ -29,6 +29,7 @@ interface HeaderConfig {
   filters: boolean
   read_only: boolean
   in_app_edit: boolean
+  prefetch_options: boolean
   lastUpdated: string | null
   updatedBy?: number
   contentTypes: {
@@ -225,7 +226,7 @@ const Configurations = ({
         </div>
       </div>
 
-      <div className="relative border rounded-lg">
+      <div className="relative border rounded-lg overflow-x-auto">
         {(isUpdating || isSaving || isRefreshing) && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-20 flex items-center justify-center">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -235,9 +236,17 @@ const Configurations = ({
           </div>
         )}
         <Table>
-          <TableHeader className=" bg-background">
+          <TableHeader className="bg-background">
             <TableRow className="border-b">
-              {renderSortableHeader('Header', 'header')}
+              <TableHead className="px-4 bg-background sticky left-0 z-30 border-r border-border shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                <button
+                  onClick={() => onSort('header')}
+                  className="flex items-center hover:text-blue-600 transition-colors font-medium py-2 whitespace-nowrap w-full"
+                >
+                  <span className="mr-2">Header</span>
+                  {getSortIcon('header')}
+                </button>
+              </TableHead>
               {renderSortableHeader('Display Name', 'displayName')}
               {renderSortableHeader('Header Type', 'headerType')}
               {renderSortableHeader('Site Pages', 'contentTypes.site-pages')}
@@ -252,6 +261,7 @@ const Configurations = ({
               {renderSortableHeader('Read Only', 'read_only')}
               {renderSortableHeader('In App Edit', 'in_app_edit')}
               {renderSortableHeader('Filters', 'filters')}
+              {renderSortableHeader('Prefetch Options', 'prefetch_options')}
               {renderSortableHeader('Last Updated', 'lastUpdated')}
               <TableHead className="px-4 bg-background">Actions</TableHead>
             </TableRow>
@@ -265,9 +275,9 @@ const Configurations = ({
                   (item.header === row.header && item.displayName === row.displayName)
               )
               return (
-                <TableRow key={row.id || index}>
+                <TableRow key={row.id || index} className="group hover:bg-muted/50">
                   {/* Header Name */}
-                  <TableCell>
+                  <TableCell className="sticky left-0 z-20 bg-card border-r border-border shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                     <div className="w-48 p-2 text-sm text-muted-foreground bg-muted/30 rounded border">
                       {row.header || ''}
                     </div>
@@ -369,6 +379,11 @@ const Configurations = ({
 
                   {/* Filters */}
                   <TableCell>{renderCell(row, 'filters', originalIndex, 'boolean')}</TableCell>
+
+                  {/* Prefetch Options */}
+                  <TableCell>
+                    {renderCell(row, 'prefetch_options', originalIndex, 'boolean')}
+                  </TableCell>
 
                   {/* Last Updated */}
                   <TableCell>
