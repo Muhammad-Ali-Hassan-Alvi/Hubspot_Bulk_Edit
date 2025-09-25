@@ -69,18 +69,30 @@ const renderCellContent = (item: HubSpotContent, columnKey: string) => {
   if (value === null || typeof value === 'undefined' || value === '') {
     return <span className="text-muted-foreground">N/A</span>
   }
-  
+
   // Date fields that should use DateDisplay component
   const dateFields = [
-    'archivedAt', 'created', 'createdAt', 'publishDate', 'updated', 'updatedAt',
-    'exportDate', 'exportedAt', 'exported_at', 'export_date', 'lastExported',
-    'exportedOn', 'exported_on', 'exportedDate', 'exported_date'
+    'archivedAt',
+    'created',
+    'createdAt',
+    'publishDate',
+    'updated',
+    'updatedAt',
+    'exportDate',
+    'exportedAt',
+    'exported_at',
+    'export_date',
+    'lastExported',
+    'exportedOn',
+    'exported_on',
+    'exportedDate',
+    'exported_date',
   ]
-  
+
   if (dateFields.includes(columnKey)) {
     return <DateDisplay date={value} format="time" showTime={true} />
   }
-  
+
   if (columnKey === 'state') {
     return (
       <Badge

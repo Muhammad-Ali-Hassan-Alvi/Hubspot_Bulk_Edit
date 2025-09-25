@@ -326,7 +326,7 @@ export default function Filters({
     if (tempFilterValue && tempFilterValue.trim() !== '' && tempFilterValue !== 'all') {
       return false // Enable the button
     }
-    
+
     // For date fields, check if date picker has a value
     // Note: The date picker is always visible, so we don't need to check selectedFilterField
     if (publishDateValue) {
@@ -335,7 +335,7 @@ export default function Filters({
     if (archivedAtValue) {
       return false // Enable the button
     }
-    
+
     return true // Disable the button
   }, [tempFilterValue, publishDateValue, archivedAtValue])
 

@@ -91,20 +91,23 @@ export default function ProfileInformation({
                 <h1 className="text-2xl font-semibold">Profile Information</h1>
               </div>
 
-              {/* Avatar block */}
-              <div className="relative group cursor-not-allowed opacity-75">
-                {/* Avatar Circle */}
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 border-2" />
+              <div className="relative group cursor-pointer">
+                <div className="h-32 w-32 rounded-full bg-black text-primary-foreground border-2 flex items-center justify-center hover:bg-primary/90">
+                  <span className="text-white font-bold text-3xl">
+                    {firstName?.charAt(0)?.toUpperCase() || ''}
+                    {lastName?.charAt(0)?.toUpperCase() || ''}
+                  </span>
+                </div>
 
                 {/* Camera icon */}
-                <div className="absolute bottom-0 right-0 h-7 w-7 bg-background border rounded-full flex items-center justify-center">
+                {/* <div className="absolute bottom-0 right-0 h-7 w-7 bg-background border rounded-full flex items-center justify-center">
                   <Camera className="h-4 w-4 text-muted-foreground" />
-                </div>
+                </div> */}
 
                 {/* Coming soon on hover */}
-                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-background border border-border px-2 py-1 text-xs font-extrabold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-background border border-border px-2 py-1 text-xs font-extrabold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                   Coming Soon
-                </div>
+                </div> */}
               </div>
             </CardTitle>
           </CardHeader>

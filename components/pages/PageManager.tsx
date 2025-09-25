@@ -442,15 +442,23 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
         (() => {
           const fieldValue = dataSource.publishDate
           if (!fieldValue) return true
-          
+
           // Create date objects for comparison to handle timezone issues
           const fieldDate = new Date(fieldValue)
           const filterDate = new Date(publishDateFilter)
-          
+
           // Compare only the date part (year, month, day) ignoring time
-          const fieldDateOnly = new Date(fieldDate.getFullYear(), fieldDate.getMonth(), fieldDate.getDate())
-          const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate())
-          
+          const fieldDateOnly = new Date(
+            fieldDate.getFullYear(),
+            fieldDate.getMonth(),
+            fieldDate.getDate()
+          )
+          const filterDateOnly = new Date(
+            filterDate.getFullYear(),
+            filterDate.getMonth(),
+            filterDate.getDate()
+          )
+
           return fieldDateOnly.getTime() === filterDateOnly.getTime()
         })()
 
@@ -478,11 +486,19 @@ export default function PageManager({ user, userSettings }: PageManagerProps) {
             // Create date objects for comparison to handle timezone issues
             const fieldDate = new Date(fieldValue)
             const filterDate = new Date(filterValue)
-            
+
             // Compare only the date part (year, month, day) ignoring time
-            const fieldDateOnly = new Date(fieldDate.getFullYear(), fieldDate.getMonth(), fieldDate.getDate())
-            const filterDateOnly = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate())
-            
+            const fieldDateOnly = new Date(
+              fieldDate.getFullYear(),
+              fieldDate.getMonth(),
+              fieldDate.getDate()
+            )
+            const filterDateOnly = new Date(
+              filterDate.getFullYear(),
+              filterDate.getMonth(),
+              filterDate.getDate()
+            )
+
             return fieldDateOnly.getTime() === filterDateOnly.getTime()
           }
 
