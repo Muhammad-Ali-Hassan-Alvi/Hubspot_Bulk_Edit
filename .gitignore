@@ -19,7 +19,6 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
 
 # vercel
 .vercel
@@ -29,3 +28,6 @@ yarn-error.log*
 next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
+config.bat
+temp_auto_push.bat
+temp_interactive_push.bat
